@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대기열 | 티켓 예매</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+        }
+
+        /* 헤더 */
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px 40px;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: #ff6b6b;
+        }
+
+        /* 메인 */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .queue-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .queue-title {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .perf-name {
+            font-size: 18px;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        /* 대기열 정보 */
+        .queue-box {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 40px 60px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            margin-bottom: 30px;
+        }
+
+        .queue-label {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .queue-position {
+            font-size: 72px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 10px;
+        }
+
+        .queue-total {
+            font-size: 16px;
+            color: #666;
+        }
+
+        /* 프로그레스 바 */
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 30px 0;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #888;
+        }
+
+        /* 예상 시간 */
+        .estimated-time {
+            font-size: 18px;
+            color: #aaa;
+        }
+
+        .estimated-time strong {
+            color: #fff;
+            font-size: 24px;
+        }
+
+        /* 안내 메시지 */
+        .notice {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-top: 30px;
+            max-width: 500px;
+        }
+
+        .notice p {
+            font-size: 14px;
+            color: #ff8a8a;
+            line-height: 1.6;
+        }
+
+        /* 로딩 애니메이션 */
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .loading-dots span {
+            width: 10px;
+            height: 10px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-dots span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-12px);
+            }
+        }
+
+        /* 입장 버튼 */
+        .btn-enter {
+            display: none;
+            padding: 18px 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        .btn-enter.show {
+            display: inline-block;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+            }
+
+            to {
+                box-shadow: 0 0 40px rgba(102, 126, 234, 0.8);
+            }
+        }
+
+        .btn-enter:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+    </header>
+
+    <main class="main">
+        <div class="queue-icon">⏳</div>
+        <h1 class="queue-title">대기열 접속 중</h1>
+        <p class="perf-name">{{ performance.title }}</p>
+
+        <div class="queue-box">
+            <p class="queue-label">현재 대기 순번</p>
+            <div class="queue-position" id="position">{{ queue_state.position }}</div>
+            <p class="queue-total">/ {{ queue_state.total }}명 대기 중</p>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+                <span>대기 시작</span>
+                <span id="progressPercent">0%</span>
+            </div>
+        </div>
+
+        <p class="estimated-time">
+            예상 대기시간: <strong id="estimatedTime">계산 중...</strong>
+        </p>
+
+        <div class="loading-dots" id="loadingDots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <button class="btn-enter" id="btnEnter" onclick="enterBooking()">
+            🎫 예매 페이지 입장
+        </button>
+
+        <div class="notice">
+            <p>⚠️ 페이지를 새로고침하면 대기열 순번이 초기화됩니다.<br>
+                잠시만 기다려 주시면 자동으로 입장됩니다.</p>
+        </div>
+    </main>
+
+    <script>
+        const perfId = "{{ performance.id }}";
+        const selectedDate = "{{ selected_date }}";
+        const selectedTime = "{{ selected_time }}";
+        const totalQueue = {{ queue_state.total }};
+        const initialPosition = {{ queue_state.position }};
+        let isReady = false;
+
+        // 대기열 로그 데이터
+        const sessionId = 'que_' + Math.random().toString(36).substr(2, 8);
+        const logData = {
+            session_id: sessionId,
+            stage: 'que',
+            performance_id: perfId,
+            selected_date: selectedDate,
+            selected_time: selectedTime,
+            queue_start_time: new Date().toISOString(),
+            initial_position: initialPosition,
+            total_queue: totalQueue,
+            position_updates: [],
+            queue_end_time: null,
+            final_position: null,
+            wait_duration_ms: null,
+            mouse_trajectory: []
+        };
+        const startTime = Date.now();
+
+        // 마우스 궤적 수집
+        let lastMouseTime = 0;
+        document.addEventListener('mousemove', (e) => {
+            const now = Date.now();
+            if (now - lastMouseTime >= 100) {
+                logData.mouse_trajectory.push({
+                    x: e.clientX,
+                    y: e.clientY,
+                    t: now - startTime
+                });
+                lastMouseTime = now;
+            }
+        });
+
+        function updateQueue() {
+            fetch('/api/queue/status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ready') {
+                        isReady = true;
+
+                        // 로그 기록
+                        logData.queue_end_time = new Date().toISOString();
+                        logData.final_position = 0;
+                        logData.wait_duration_ms = Date.now() - startTime;
+                        logData.position_updates.push({
+                            position: 0,
+                            status: 'ready',
+                            timestamp: new Date().toISOString()
+                        });
+
+                        document.getElementById('position').textContent = '0';
+                        document.getElementById('progressFill').style.width = '100%';
+                        document.getElementById('progressPercent').textContent = '100%';
+                        document.getElementById('estimatedTime').textContent = '입장 가능!';
+                        document.getElementById('loadingDots').style.display = 'none';
+                        document.getElementById('btnEnter').classList.add('show');
+
+                        // 짧은 딜레이 후 자동 입장
+                        setTimeout(() => {
+                            if (!isReady) return;
+                            enterBooking();
+                        }, 1500);
+                    } else if (data.status === 'waiting') {
+                        const position = data.position;
+                        const progress = Math.round((1 - position / totalQueue) * 100);
+
+                        // 위치 변화 로그
+                        logData.position_updates.push({
+                            position: position,
+                            progress: progress,
+                            estimated_minutes: data.estimated_minutes,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        document.getElementById('position').textContent = position.toLocaleString();
+                        document.getElementById('progressFill').style.width = progress + '%';
+                        document.getElementById('progressPercent').textContent = progress + '%';
+                        document.getElementById('estimatedTime').textContent = `약 ${data.estimated_minutes}분`;
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function enterBooking() {
+            logData.entry_time = new Date().toISOString();
+
+            // 로그 저장 후 페이지 이동
+            fetch('/api/stage-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(logData)
+            }).then(() => {
+                window.location.href = `/captcha/${perfId}?date=${selectedDate}&time=${selectedTime}`;
+            }).catch(() => {
+                window.location.href = `/captcha/${perfId}?date=${selectedDate}&time=${selectedTime}`;
+            });
+        }
+
+        // 1초마다 대기열 업데이트
+        setInterval(updateQueue, 1000);
+        updateQueue();
+    </script>
+</body>
+
+</html>

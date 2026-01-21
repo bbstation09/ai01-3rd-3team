@@ -1,0 +1,7 @@
+# logs 폴더 전체 제외
+logs/
+
+# (있으면 같이 추천)
+__pycache__/
+*.pyc
+.env
