@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그 뷰어 | 티켓 예매</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+        }
+
+        body {
+            background: #f5f5f7;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #fff;
+            padding: 16px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6b4fbb;
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: #ff6b6b;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        .nav-links a {
+            padding: 8px 16px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-links a:hover {
+            background: #eee;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            margin-bottom: 24px;
+            color: #333;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .log-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .log-item:hover {
+            background: #f8f5ff;
+        }
+
+        .log-item.active {
+            background: #f0ebff;
+            border-left: 4px solid #6b4fbb;
+        }
+
+        .log-item.bot {
+            background: #fff5f5;
+        }
+
+        .log-item.bot.active {
+            background: #ffe0e0;
+            border-left-color: #dc3545;
+        }
+
+        .log-filename {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+            font-family: monospace;
+        }
+
+        .log-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .log-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .log-badge.human {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .log-badge.bot {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .log-duration {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* 상세 뷰 */
+        .detail-section {
+            padding: 20px;
+        }
+
+        .detail-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .detail-item {
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* 궤적 시각화 */
+        .trajectory-canvas {
+            width: 100%;
+            height: 300px;
+            background: #1a1a2e;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        /* 통계 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .stat-card.warning {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+
+        /* JSON 뷰 */
+        .json-view {
+            background: #1a1a2e;
+            color: #a5d6a7;
+            padding: 16px;
+            border-radius: 12px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #888;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+        <div class="nav-links">
+            <a href="/performances">공연 목록</a>
+            <a href="/logout">로그아웃</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">📊 로그 뷰어</h1>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalLogs">{{ log_files|length }}</div>
+                <div class="stat-label">전체 로그</div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-value" id="humanLogs">{{ log_files|selectattr('is_bot', 'false')|list|length }}</div>
+                <div class="stat-label">정상 사용자</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-value" id="botLogs">{{ log_files|selectattr('is_bot')|list|length }}</div>
+                <div class="stat-label">봇 탐지</div>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <div class="card">
+                <div class="card-header">세션 로그 목록</div>
+                <div class="log-list">
+                    {% if log_files %}
+                    {% for log in log_files %}
+                    <div class="log-item {% if log.is_bot %}bot{% endif %}" onclick="loadLog('{{ log.filename }}')"
+                        id="log-{{ loop.index }}">
+                        <div class="log-filename">{{ log.created_at[:19] if log.created_at else '-' }} | {{
+                            log.session_id }} | {{ log.display_stage }}</div>
+                        <div class="log-info">
+                            <span class="log-badge {% if log.is_bot %}bot{% else %}human{% endif %}">
+                                {% if log.is_bot %}🤖 BOT{% else %}👤 {{ log.user_email or 'Human' }}{% endif %}
+                            </span>
+                            <span class="log-duration">{{ (log.duration / 1000)|round(1) }}초</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <p>로그가 없습니다</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">상세 정보</div>
+                <div id="detailContent">
+                    <div class="empty-state">
+                        <div class="icon">👈</div>
+                        <p>로그를 선택해주세요</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLog = null;
+
+        async function loadLog(filename) {
+            // 활성 상태 변경
+            document.querySelectorAll('.log-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            const response = await fetch(`/api/logs/${filename}`);
+            const data = await response.json();
+            currentLog = data;
+
+            renderDetail(data);
+        }
+
+        function renderDetail(data) {
+            const container = document.getElementById('detailContent');
+
+            const isBot = data.is_bot || false;
+            const botScore = data.bot_score || 0;
+
+            // 체류 시간 계산
+            let durationMs = data.total_duration_ms || data.wait_duration_ms || 0;
+            if (durationMs === 0) {
+                if (data.page_entry_time && data.page_exit_time) {
+                    durationMs = new Date(data.page_exit_time) - new Date(data.page_entry_time);
+                } else if (data.queue_start_time && data.queue_end_time) {
+                    durationMs = new Date(data.queue_end_time) - new Date(data.queue_start_time);
+                } else if (data.booking_start_time && data.booking_end_time) {
+                    durationMs = new Date(data.booking_end_time) - new Date(data.booking_start_time);
+                }
+            }
+
+            // 마우스 궤적 통합 (book 로그는 여러 단계별 궤적을 가짐)
+            let allTrajectory = data.mouse_trajectory || [];
+            if (data.mouse_trajectory_seats) allTrajectory = allTrajectory.concat(data.mouse_trajectory_seats);
+            if (data.mouse_trajectory_discount) allTrajectory = allTrajectory.concat(data.mouse_trajectory_discount);
+            if (data.mouse_trajectory_booker) allTrajectory = allTrajectory.concat(data.mouse_trajectory_booker);
+            if (data.mouse_trajectory_payment) allTrajectory = allTrajectory.concat(data.mouse_trajectory_payment);
+            if (data.captcha?.mouse_trajectory) allTrajectory = allTrajectory.concat(data.captcha.mouse_trajectory);
+            if (data.section_selection?.mouse_trajectory) allTrajectory = allTrajectory.concat(data.section_selection.mouse_trajectory);
+
+            // 클릭 데이터 통합
+            let allClicks = data.clicks || [];
+            if (data.seat_selection?.clicks) allClicks = allClicks.concat(data.seat_selection.clicks);
+            if (data.captcha?.clicks) allClicks = allClicks.concat(data.captcha.clicks);
+
+            // 호버 횟수 계산 (actions에서 hover관련 이벤트 집계)
+            let hoverCount = (data.hovers || []).length;
+            if (data.seat_selection?.hovers) hoverCount += data.seat_selection.hovers.length;
+            if (hoverCount === 0 && data.actions) {
+                hoverCount = data.actions.filter(a => a.action && a.action.includes('hover')).length;
+            }
+
+            // 클릭 횟수 계산
+            let clickCount = allClicks.length;
+            if (clickCount === 0 && data.actions) {
+                clickCount = data.actions.filter(a => a.action && (a.action.includes('click') || a.action.includes('select'))).length;
+            }
+            if (clickCount === 0 && data.card_clicks) {
+                clickCount = data.card_clicks.length +
+                    (data.date_selections || []).length +
+                    (data.time_selections || []).length;
+            }
+            if (data.section_selection?.clicks) clickCount += data.section_selection.clicks.length;
+
+            // 단계 표시
+            const stageLabels = { 'perf': '🎭 공연창', 'que': '⏳ 대기열', 'book': '🎫 예매창' };
+            const stageLabel = stageLabels[data.stage] || data.stage || '-';
+
+            container.innerHTML = `
+                <div class="detail-section">
+                    <h3 class="detail-title">세션 정보</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">세션 ID</div>
+                            <div class="detail-value">${data.session_id || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">사용자 ID</div>
+                            <div class="detail-value">${data.user_email || data.user_id || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">IP 주소</div>
+                            <div class="detail-value">${data.user_ip || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">단계</div>
+                            <div class="detail-value">${stageLabel}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">체류 시간</div>
+                            <div class="detail-value">${(durationMs / 1000).toFixed(1)}초</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">봇 스코어</div>
+                            <div class="detail-value" style="color: ${botScore > 0.7 ? '#dc3545' : botScore > 0.4 ? '#ffc107' : '#28a745'}">
+                                ${(botScore * 100).toFixed(0)}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${isBot ? `
+                        <div style="background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+                            <strong style="color: #d32f2f;">🤖 봇 탐지</strong>
+                            <p style="margin-top: 4px; font-size: 13px; color: #666;">
+                                유형: ${data.bot_type || '-'} (${data.bot_description || '-'})
+                            </p>
+                        </div>
+                    ` : ''}
+                    
+                    <h3 class="detail-title">마우스 궤적</h3>
+                    <canvas class="trajectory-canvas" id="trajectoryCanvas"></canvas>
+                    
+                    <h3 class="detail-title">행동 통계</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">마우스 궤적 포인트</div>
+                            <div class="detail-value">${allTrajectory.length}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">클릭/선택 횟수</div>
+                            <div class="detail-value">${clickCount}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">호버 횟수</div>
+                            <div class="detail-value">${hoverCount}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">선택 좌석</div>
+                            <div class="detail-value">${(data.selected_seats || data.seat_selection?.seats || data.seats?.selected || []).join(', ') || '-'}</div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="detail-title">원본 데이터</h3>
+                    <div class="json-view">${JSON.stringify(data, null, 2)}</div>
+                </div>
+            `;
+
+            // 궤적 그리기 - 통합된 궤적과 클릭 사용
+            drawTrajectory(allTrajectory, allClicks);
+        }
+
+        function drawTrajectory(trajectory, clicks) {
+            const canvas = document.getElementById('trajectoryCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            if (trajectory.length === 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('궤적 데이터 없음', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // 스케일 계산
+            const maxX = Math.max(...trajectory.map(p => p.x), 1);
+            const maxY = Math.max(...trajectory.map(p => p.y), 1);
+            const scaleX = (canvas.width - 40) / maxX;
+            const scaleY = (canvas.height - 40) / maxY;
+            const scale = Math.min(scaleX, scaleY);
+
+            // 궤적 그리기
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            trajectory.forEach((point, i) => {
+                const x = point.x * scale + 20;
+                const y = point.y * scale + 20;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+
+            ctx.stroke();
+
+            // 클릭 포인트
+            clicks.forEach(click => {
+                const x = click.x * scale + 20;
+                const y = click.y * scale + 20;
+
+                ctx.fillStyle = '#ff6b6b';
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 시작점
+            if (trajectory.length > 0) {
+                ctx.fillStyle = '#2ecc71';
+                ctx.beginPath();
+                ctx.arc(trajectory[0].x * scale + 20, trajectory[0].y * scale + 20, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    </script>
+</body>
+
+</html>
