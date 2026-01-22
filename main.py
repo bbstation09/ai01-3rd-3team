@@ -24,7 +24,7 @@ from mysql.connector import Error
 
 # ============== DB 설정 ==============
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': 'localhost', 
     'user': 'root',
     'password': '0000',  # TODO: 환경변수로 분리 권장
     'charset': 'utf8mb4',
