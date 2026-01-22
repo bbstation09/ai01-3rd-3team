@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test/Debug files
+debug_*.png
+result.txt
+
+# Jupyter Notebooks
+*.ipynb_checkpoints/
+t.ipynb
+
+# Cleanup scripts
+cleanup_*.py
+
+# API keys (never commit!)
+*_api_key.txt
