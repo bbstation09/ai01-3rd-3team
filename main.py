@@ -19,12 +19,58 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 import aiofiles
+import mysql.connector
+from mysql.connector import Error
+
+# ============== DB 설정 ==============
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '0000',  # TODO: 환경변수로 분리 권장
+    'charset': 'utf8mb4',
+    'database': 'market_db'
+}
 
 # ============== 앱 설정 ==============
 app = FastAPI(title="티켓 예매 시스템", version="1.0.0")
 app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key-change-in-production")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# ============== DB 초기화 ==============
+def init_db():
+    """DB 테이블 초기화"""
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        if conn.is_connected():
+            cursor = conn.cursor()
+            # action_logs 테이블 생성
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS action_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                timestamp VARCHAR(50),
+                user_ip VARCHAR(50),
+                session_id VARCHAR(100),
+                user_id VARCHAR(100),
+                action VARCHAR(50),
+                target_id VARCHAR(100),
+                click_pos_x VARCHAR(20),
+                click_pos_y VARCHAR(20),
+                time_delta VARCHAR(20),
+                extra TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            conn.commit()
+            print("✅ MySQL DB initialized (Table 'action_logs' ready).")
+            cursor.close()
+            conn.close()
+    except Error as e:
+        print(f"❌ Failed to initialize DB: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
 
 # ============== 경로 설정 ==============
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -179,20 +225,39 @@ def init_seat_state(perf_id: str) -> Dict:
     
     return seats
 
-async def save_csv_log(log_data: dict):
-    """CSV 로그 저장 (비동기)"""
-    file_exists = os.path.exists(CSV_LOG_FILE)
-    
-    async with aiofiles.open(CSV_LOG_FILE, 'a', encoding='utf-8', newline='') as f:
-        fieldnames = ['timestamp', 'user_ip', 'session_id', 'user_id', 'action', 
-                      'target_id', 'click_pos_x', 'click_pos_y', 'time_delta', 'extra']
-        
-        if not file_exists:
-            header = ','.join(fieldnames) + '\n'
-            await f.write(header)
-        
-        row = ','.join([str(log_data.get(field, '')) for field in fieldnames]) + '\n'
-        await f.write(row)
+async def save_db_log(log_data: dict):
+    """MySQL DB 로그 저장 (비동기 래퍼)"""
+    def _insert_log():
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
+            if conn.is_connected():
+                cursor = conn.cursor()
+                sql = """
+                INSERT INTO action_logs 
+                (timestamp, user_ip, session_id, user_id, action, target_id, click_pos_x, click_pos_y, time_delta, extra) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                val = (
+                    log_data.get('timestamp'),
+                    log_data.get('user_ip'),
+                    log_data.get('session_id'),
+                    log_data.get('user_id'),
+                    log_data.get('action'),
+                    log_data.get('target_id'),
+                    log_data.get('click_pos_x'),
+                    log_data.get('click_pos_y'),
+                    log_data.get('time_delta'),
+                    log_data.get('extra')  # JSON string
+                )
+                cursor.execute(sql, val)
+                conn.commit()
+                cursor.close()
+                conn.close()
+        except Error as e:
+            print(f"Error while connecting to MySQL: {e}")
+
+    # 비동기 실행을 위해 to_thread 사용
+    await asyncio.to_thread(_insert_log)
 
 async def save_session_log(session_data: dict):
     """JSON 세션 로그 저장 (비동기)"""
@@ -689,7 +754,7 @@ async def save_log(request: Request):
         "extra": json.dumps(data.get("extra", {}))
     }
     
-    await save_csv_log(log_entry)
+    await save_db_log(log_entry)
     return {"success": True}
 
 @app.post("/api/session-log")
