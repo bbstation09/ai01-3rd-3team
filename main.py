@@ -37,6 +37,47 @@ app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key-change-i
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# ============== 로깅 미들웨어 ==============
+@app.middleware("http")
+async def db_logging_middleware(request: Request, call_next):
+    start_time = datetime.now()
+    response = await call_next(request)
+    process_time = (datetime.now() - start_time).total_seconds()
+    
+    # 정적 파일이나 일부 경로는 로그 제외 가능 (필요시)
+    if request.url.path.startswith("/static"):
+        return response
+
+    # 비동기로 DB 저장
+    def _save_access_log():
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
+            if conn.is_connected():
+                cursor = conn.cursor()
+                sql = """
+                INSERT INTO access_logs 
+                (timestamp, client_ip, method, url, status_code, user_agent, process_time) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                val = (
+                    start_time.isoformat(),
+                    request.client.host if request.client else "unknown",
+                    request.method,
+                    str(request.url),
+                    response.status_code,
+                    request.headers.get("user-agent", ""),
+                    process_time
+                )
+                cursor.execute(sql, val)
+                conn.commit()
+                cursor.close()
+                conn.close()
+        except Exception:
+            pass # 로깅 실패가 서비스에 영향 주지 않도록
+            
+    await asyncio.to_thread(_save_access_log)
+    return response
+
 # ============== DB 초기화 ==============
 def init_db():
     """DB 테이블 초기화"""
@@ -61,8 +102,23 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
+
+            # access_logs 테이블 생성 (서버 접속 로그)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS access_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                timestamp VARCHAR(50),
+                client_ip VARCHAR(50),
+                method VARCHAR(10),
+                url TEXT,
+                status_code INT,
+                user_agent TEXT,
+                process_time FLOAT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
             conn.commit()
-            print("✅ MySQL DB initialized (Table 'action_logs' ready).")
+            print("✅ MySQL DB initialized (Tables 'action_logs' & 'access_logs' ready).")
             cursor.close()
             conn.close()
     except Error as e:
