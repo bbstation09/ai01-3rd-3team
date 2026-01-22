@@ -361,14 +361,29 @@
                 }
             }
 
+            // 마우스 궤적 통합 (book 로그는 여러 단계별 궤적을 가짐)
+            let allTrajectory = data.mouse_trajectory || [];
+            if (data.mouse_trajectory_seats) allTrajectory = allTrajectory.concat(data.mouse_trajectory_seats);
+            if (data.mouse_trajectory_discount) allTrajectory = allTrajectory.concat(data.mouse_trajectory_discount);
+            if (data.mouse_trajectory_booker) allTrajectory = allTrajectory.concat(data.mouse_trajectory_booker);
+            if (data.mouse_trajectory_payment) allTrajectory = allTrajectory.concat(data.mouse_trajectory_payment);
+            if (data.captcha?.mouse_trajectory) allTrajectory = allTrajectory.concat(data.captcha.mouse_trajectory);
+            if (data.section_selection?.mouse_trajectory) allTrajectory = allTrajectory.concat(data.section_selection.mouse_trajectory);
+
+            // 클릭 데이터 통합
+            let allClicks = data.clicks || [];
+            if (data.seat_selection?.clicks) allClicks = allClicks.concat(data.seat_selection.clicks);
+            if (data.captcha?.clicks) allClicks = allClicks.concat(data.captcha.clicks);
+
             // 호버 횟수 계산 (actions에서 hover관련 이벤트 집계)
             let hoverCount = (data.hovers || []).length;
+            if (data.seat_selection?.hovers) hoverCount += data.seat_selection.hovers.length;
             if (hoverCount === 0 && data.actions) {
                 hoverCount = data.actions.filter(a => a.action && a.action.includes('hover')).length;
             }
 
             // 클릭 횟수 계산
-            let clickCount = (data.clicks || []).length;
+            let clickCount = allClicks.length;
             if (clickCount === 0 && data.actions) {
                 clickCount = data.actions.filter(a => a.action && (a.action.includes('click') || a.action.includes('select'))).length;
             }
@@ -377,6 +392,7 @@
                     (data.date_selections || []).length +
                     (data.time_selections || []).length;
             }
+            if (data.section_selection?.clicks) clickCount += data.section_selection.clicks.length;
 
             // 단계 표시
             const stageLabels = { 'perf': '🎭 공연창', 'que': '⏳ 대기열', 'book': '🎫 예매창' };
@@ -430,7 +446,7 @@
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="detail-label">마우스 궤적 포인트</div>
-                            <div class="detail-value">${(data.mouse_trajectory || []).length}</div>
+                            <div class="detail-value">${allTrajectory.length}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">클릭/선택 횟수</div>
@@ -442,7 +458,7 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">선택 좌석</div>
-                            <div class="detail-value">${(data.selected_seats || data.seats?.selected || []).join(', ') || '-'}</div>
+                            <div class="detail-value">${(data.selected_seats || data.seat_selection?.seats || data.seats?.selected || []).join(', ') || '-'}</div>
                         </div>
                     </div>
                     
@@ -451,8 +467,8 @@
                 </div>
             `;
 
-            // 궤적 그리기
-            drawTrajectory(data.mouse_trajectory || [], data.clicks || []);
+            // 궤적 그리기 - 통합된 궤적과 클릭 사용
+            drawTrajectory(allTrajectory, allClicks);
         }
 
         function drawTrajectory(trajectory, clicks) {

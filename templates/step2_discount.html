@@ -390,6 +390,21 @@
         }
 
         function goNext() {
+            // bookLogData에 할인 선택 정보 저장
+            let bookLogData = null;
+            try {
+                bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
+            } catch (e) { }
+
+            if (bookLogData) {
+                bookLogData.discount = {
+                    type: selectedDiscount,
+                    selection_time: new Date().toISOString()
+                };
+                bookLogData.mouse_trajectory_discount = mouseTrajectory;
+                sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+            }
+
             saveLog();
             window.location.href = `/step3/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seats}&discount=${selectedDiscount}`;
         }

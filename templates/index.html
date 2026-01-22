@@ -801,6 +801,27 @@
         }
 
         function goToCheckout() {
+            // bookLogData에 좌석 선택 정보 저장
+            let bookLogData = null;
+            try {
+                bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
+            } catch(e) {}
+            
+            if (bookLogData) {
+                bookLogData.seat_selection = {
+                    seats: selectedSeats,
+                    section: selectedSection,
+                    grade: selectedGrade,
+                    start_time: new Date(pageStartTime).toISOString(),
+                    end_time: new Date().toISOString(),
+                    duration_ms: Date.now() - pageStartTime,
+                    clicks: clicks,
+                    hovers: hovers
+                };
+                bookLogData.mouse_trajectory_seats = mouseTrajectory;
+                sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+            }
+            
             // 좌석 선택 세션 로그 저장
             saveSessionLog().then(() => {
                 const seatsParam = selectedSeats.join(',');
