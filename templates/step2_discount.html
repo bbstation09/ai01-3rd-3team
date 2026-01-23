@@ -380,12 +380,23 @@
         let selectedDiscount = 'normal';
         let pageStartTime = Date.now();
         let mouseTrajectory = [];
+        let clicks_discount = [];
 
         function selectDiscount(el, type) {
             document.querySelectorAll('.discount-option').forEach(e => e.classList.remove('selected'));
             el.classList.add('selected');
             el.querySelector('input').checked = true;
             selectedDiscount = type;
+
+            // 클릭 좌표 수집
+            const rect = el.getBoundingClientRect();
+            clicks_discount.push({
+                x: Math.round(rect.left + rect.width / 2),
+                y: Math.round(rect.top + rect.height / 2),
+                target: 'discount_' + type,
+                timestamp: Date.now() - pageStartTime
+            });
+
             logAction('discount_select', type);
         }
 
@@ -402,6 +413,7 @@
                     selection_time: new Date().toISOString()
                 };
                 bookLogData.mouse_trajectory_discount = mouseTrajectory;
+                bookLogData.clicks_discount = clicks_discount;
                 sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
             }
 

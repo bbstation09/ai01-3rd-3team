@@ -462,12 +462,23 @@
         let pageStartTime = Date.now();
         let mouseTrajectory = [];
         let clicks = [];
+        let clicks_payment = [];
 
         function selectPayment(el, type) {
             document.querySelectorAll('.payment-option').forEach(e => e.classList.remove('selected'));
             el.classList.add('selected');
             el.querySelector('input').checked = true;
             selectedPayment = type;
+
+            // 클릭 좌표 수집
+            const rect = el.getBoundingClientRect();
+            clicks_payment.push({
+                x: Math.round(rect.left + rect.width / 2),
+                y: Math.round(rect.top + rect.height / 2),
+                target: 'payment_' + type,
+                timestamp: Date.now() - pageStartTime
+            });
+
             logAction('payment_select', type);
         }
 
@@ -516,6 +527,7 @@
                 };
                 bookLogData.booking_end_time = new Date().toISOString();
                 bookLogData.mouse_trajectory_payment = mouseTrajectory;
+                bookLogData.clicks_payment = clicks_payment;
 
                 // book 로그 저장 (3단계 로그 시스템)
                 await fetch('/api/stage-log', {

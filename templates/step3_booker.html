@@ -380,6 +380,7 @@
         let deliveryFee = 0;
         let pageStartTime = Date.now();
         let mouseTrajectory = [];
+        let clicks_booker = [];
 
         function selectDelivery(el, type, fee) {
             document.querySelectorAll('.delivery-option').forEach(e => e.classList.remove('selected'));
@@ -387,6 +388,15 @@
             el.querySelector('input').checked = true;
             selectedDelivery = type;
             deliveryFee = fee;
+
+            // 클릭 좌표 수집
+            const rect = el.getBoundingClientRect();
+            clicks_booker.push({
+                x: Math.round(rect.left + rect.width / 2),
+                y: Math.round(rect.top + rect.height / 2),
+                target: 'delivery_' + type,
+                timestamp: Date.now() - pageStartTime
+            });
 
             document.getElementById('deliveryFee').textContent = fee.toLocaleString() + '원';
             document.getElementById('totalAmount').textContent = (basePrice + fee).toLocaleString() + '원';
@@ -412,6 +422,7 @@
                     selection_time: new Date().toISOString()
                 };
                 bookLogData.mouse_trajectory_booker = mouseTrajectory;
+                bookLogData.clicks_booker = clicks_booker;
                 sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
             }
 
