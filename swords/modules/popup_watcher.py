@@ -142,7 +142,7 @@ JSON only:
         elif p_type == "CAPTCHA":
             if p_text and norm_x > 0 and norm_y > 0:
                 captcha_str = "".join(e for e in p_text if e.isalnum())
-                self.update_status(f"🔐 CAPTCHA 처리: '{captcha_str}' 입력")
+                self.update_status(f"🔐 CAPTCHA 처리: '{captcha_str}' 입력 (클릭좌표: {abs_x}, {abs_y})")
                 
                 click_and_restore(abs_x, abs_y)
                 time.sleep(0.1)
