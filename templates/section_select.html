@@ -506,17 +506,26 @@
             selectedGrade = grade;
             selectedPrice = price;
 
+            // 클릭 좌표 수집
+            const rect = el.getBoundingClientRect();
+            const clickX = rect.left + rect.width / 2;
+            const clickY = rect.top + rect.height / 2;
+
             // 로그 기록
             sectionClicks.push({
                 section: sectionId,
                 grade: grade,
                 price: price,
+                x: Math.round(clickX),
+                y: Math.round(clickY),
                 timestamp: new Date().toISOString()
             });
 
             if (bookLogData) {
                 bookLogData.section_selection.clicks.push({
                     section: sectionId,
+                    x: Math.round(clickX),
+                    y: Math.round(clickY),
                     timestamp: new Date().toISOString()
                 });
                 sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
