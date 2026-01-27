@@ -379,77 +379,50 @@
         const seats = "{{ selected_seats | join(',') }}";
         let selectedDiscount = 'normal';
         let pageStartTime = Date.now();
-        let mouseTrajectory = [];
-        let clicks_discount = [];
 
-        function selectDiscount(el, type) {
-            document.querySelectorAll('.discount-option').forEach(e => e.classList.remove('selected'));
-            el.classList.add('selected');
-            el.querySelector('input').checked = true;
-            selectedDiscount = type;
-
-            // 클릭 좌표 수집
-            const rect = el.getBoundingClientRect();
-            clicks_discount.push({
-                x: Math.round(rect.left + rect.width / 2),
-                y: Math.round(rect.top + rect.height / 2),
-                target: 'discount_' + type,
-                timestamp: Date.now() - pageStartTime
-            });
-
-            logAction('discount_select', type);
-        }
-
-        function goNext() {
-            // bookLogData에 할인 선택 정보 저장
+        // 페이지 진입 시 book 로그 서버 전송 (로그 수집 종료 시점)
+        async function sendBookLog() {
             let bookLogData = null;
             try {
                 bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
             } catch (e) { }
 
             if (bookLogData) {
+                bookLogData.booking_end_time = new Date().toISOString();
                 bookLogData.discount = {
-                    type: selectedDiscount,
-                    selection_time: new Date().toISOString()
+                    page_entry_time: new Date().toISOString()
                 };
-                bookLogData.mouse_trajectory_discount = mouseTrajectory;
-                bookLogData.clicks_discount = clicks_discount;
-                sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
-            }
 
-            saveLog();
+                // 서버로 로그 전송
+                try {
+                    await fetch('/api/stage-log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bookLogData)
+                    });
+                    console.log('Book log sent successfully');
+                } catch (e) {
+                    console.error('Failed to send book log:', e);
+                }
+
+                // sessionStorage 정리
+                sessionStorage.removeItem('bookLogData');
+            }
+        }
+
+        // 페이지 로드 시 로그 전송
+        sendBookLog();
+
+        function selectDiscount(el, type) {
+            document.querySelectorAll('.discount-option').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            el.querySelector('input').checked = true;
+            selectedDiscount = type;
+        }
+
+        function goNext() {
             window.location.href = `/step3/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seats}&discount=${selectedDiscount}`;
         }
-
-        async function logAction(action, target) {
-            await fetch('/api/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: "{{ session_id }}", action, target_id: target })
-            });
-        }
-
-        async function saveLog() {
-            await fetch('/api/session-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: "{{ session_id }}",
-                    page: 'step2_discount',
-                    discount_type: selectedDiscount,
-                    total_duration_ms: Date.now() - pageStartTime,
-                    mouse_trajectory: mouseTrajectory
-                })
-            });
-        }
-
-        document.addEventListener('mousemove', (e) => {
-            const now = Date.now();
-            if (!window.lastT || now - window.lastT >= 50) {
-                mouseTrajectory.push({ x: e.clientX, y: e.clientY, t: now - pageStartTime });
-                window.lastT = now;
-            }
-        });
 
         let timeLeft = 300;
         function updateTimer() {
@@ -459,7 +432,6 @@
             else { alert('시간 초과'); location.href = '/performances'; }
         }
         updateTimer();
-        logAction('page_enter', 'step2_discount');
     </script>
 </body>
 

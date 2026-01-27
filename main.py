@@ -753,12 +753,62 @@ async def complete_booking(request: Request):
     data = await request.json()
     client_ip = request.client.host if request.client else "unknown"
     
+    # 예매번호 생성 (M + 8자리 숫자)
+    booking_id = f"M{random.randint(10000000, 99999999)}"
+    
+    # 기존 book 로그 파일에 결제 완료 정보 추가
+    user_id = request.session.get("user_id", "")
+    session_id = data.get("session_id", "")
+    
+    # 가장 최근 book 로그 파일 찾기 (user_id 또는 session_id로 매칭)
+    book_log_updated = False
+    book_files = []
+    
+    for filename in os.listdir(LOGS_DIR):
+        if "_book.json" in filename:
+            filepath = os.path.join(LOGS_DIR, filename)
+            book_files.append((filename, filepath, os.path.getmtime(filepath)))
+    
+    # 최신순 정렬
+    book_files.sort(key=lambda x: x[2], reverse=True)
+    
+    for filename, filepath, _ in book_files:
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                book_log = json.load(f)
+            
+            # session_id 또는 user_id로 매칭
+            log_user_id = book_log.get("user_id", "")
+            log_session_id = book_log.get("session_id", "")
+            
+            # 이미 결제 완료된 로그는 건너뛰기
+            if book_log.get("payment_completed"):
+                continue
+            
+            # 매칭 조건: session_id가 일치하거나, user_id가 일치하는 최신 로그
+            if (session_id and log_session_id == session_id) or (user_id and log_user_id == user_id):
+                # 결제 완료 정보 추가
+                book_log["payment_completed"] = True
+                book_log["booking_id"] = booking_id
+                book_log["payment_completed_at"] = datetime.now().isoformat()
+                
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(book_log, f, ensure_ascii=False, indent=2)
+                
+                book_log_updated = True
+                print(f"book 로그 업데이트 완료: {filename}")
+                break
+        except Exception as e:
+            print(f"book 로그 처리 실패 ({filename}): {e}")
+            continue
+    
     # 세션 로그 저장
     session_data = {
         **data,
         "user_ip": client_ip,
         "user_id": request.session.get("user_id", ""),
         "is_bot": False,
+        "booking_id": booking_id,
         "completed_at": datetime.now().isoformat()
     }
     await save_session_log(session_data)
@@ -777,7 +827,7 @@ async def complete_booking(request: Request):
         queue_bot = generate_bot_log("queue_bypass")
         await save_session_log(queue_bot)
     
-    return {"success": True, "booking_id": str(uuid.uuid4())}
+    return {"success": True, "booking_id": booking_id}
 
 # ============== 로그 뷰어 ==============
 @app.get("/viewer", response_class=HTMLResponse)

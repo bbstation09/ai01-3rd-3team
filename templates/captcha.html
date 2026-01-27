@@ -258,55 +258,11 @@
         const selectedDate = "{{ selected_date }}";
         const selectedTime = "{{ selected_time }}";
 
-        // 예매창 로그 시작 (캡챠 ~ 예매완료)
-        const bookSessionId = 'book_' + Math.random().toString(36).substr(2, 8);
+        // 캡챠 기능만 유지 (로그 수집은 section_select에서 시작)
         const pageStartTime = Date.now();
         let captchaCode = '';
         let captchaStartTime = 0;
         let attemptCount = 0;
-        let mouseTrajectory = [];
-
-        // sessionStorage에 book 로그 데이터 초기화
-        const bookLogData = {
-            session_id: bookSessionId,
-            stage: 'book',
-            performance_id: perfId,
-            selected_date: selectedDate,
-            selected_time: selectedTime,
-            booking_start_time: new Date().toISOString(),
-            captcha: {
-                start_time: null,
-                end_time: null,
-                attempts: [],
-                success: false,
-                mouse_trajectory: []
-            },
-            seats: {
-                selected: [],
-                taken_by_others: [],
-                selection_time: null
-            },
-            discount: {
-                selected: null,
-                selection_time: null
-            },
-            delivery: {
-                method: null,
-                selection_time: null
-            },
-            payment: {
-                method: null,
-                selection_time: null
-            },
-            booking_end_time: null
-        };
-
-        function saveBookLogToStorage() {
-            sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
-        }
-
-        // 초기 저장
-        saveBookLogToStorage();
 
         function generateCaptcha() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -316,49 +272,26 @@
             }
             document.getElementById('captchaText').textContent = captchaCode;
             captchaStartTime = Date.now();
-            bookLogData.captcha.start_time = new Date().toISOString();
         }
 
         function refreshCaptcha() {
             generateCaptcha();
             document.getElementById('captchaInput').value = '';
             document.getElementById('errorMsg').classList.remove('show');
-
-            bookLogData.captcha.attempts.push({
-                action: 'refresh',
-                timestamp: new Date().toISOString()
-            });
-            saveBookLogToStorage();
         }
 
         function verifyCaptcha() {
             const input = document.getElementById('captchaInput').value.toUpperCase();
-            const captchaTime = Date.now() - captchaStartTime;
             attemptCount++;
 
-            bookLogData.captcha.attempts.push({
-                action: 'attempt',
-                input: input,
-                correct: input === captchaCode,
-                time_ms: captchaTime,
-                attempt_number: attemptCount,
-                timestamp: new Date().toISOString()
-            });
-
             if (input === captchaCode) {
-                // 성공
-                bookLogData.captcha.success = true;
-                bookLogData.captcha.end_time = new Date().toISOString();
-                bookLogData.captcha.mouse_trajectory = mouseTrajectory;
-                saveBookLogToStorage();
-
+                // 성공 - 구역 선택 페이지로 이동
                 window.location.href = `/section/${perfId}?date=${selectedDate}&time=${selectedTime}`;
             } else {
                 // 실패
                 document.getElementById('errorMsg').classList.add('show');
                 document.getElementById('captchaInput').value = '';
                 document.getElementById('captchaInput').focus();
-                saveBookLogToStorage();
 
                 // 3회 실패 시 새 캡챠
                 if (attemptCount >= 3) {
@@ -367,16 +300,6 @@
                 }
             }
         }
-
-        // 마우스 궤적 수집
-        let lastMouseTime = 0;
-        document.addEventListener('mousemove', (e) => {
-            const now = Date.now();
-            if (now - lastMouseTime >= 50) {
-                mouseTrajectory.push({ x: e.clientX, y: e.clientY, t: now - pageStartTime });
-                lastMouseTime = now;
-            }
-        });
 
         // 엔터키 처리
         document.getElementById('captchaInput').addEventListener('keypress', (e) => {

@@ -378,9 +378,6 @@
         const basePrice = {{ final_price }};
         let selectedDelivery = 'pickup';
         let deliveryFee = 0;
-        let pageStartTime = Date.now();
-        let mouseTrajectory = [];
-        let clicks_booker = [];
 
         function selectDelivery(el, type, fee) {
             document.querySelectorAll('.delivery-option').forEach(e => e.classList.remove('selected'));
@@ -389,76 +386,13 @@
             selectedDelivery = type;
             deliveryFee = fee;
 
-            // 클릭 좌표 수집
-            const rect = el.getBoundingClientRect();
-            clicks_booker.push({
-                x: Math.round(rect.left + rect.width / 2),
-                y: Math.round(rect.top + rect.height / 2),
-                target: 'delivery_' + type,
-                timestamp: Date.now() - pageStartTime
-            });
-
             document.getElementById('deliveryFee').textContent = fee.toLocaleString() + '원';
             document.getElementById('totalAmount').textContent = (basePrice + fee).toLocaleString() + '원';
-            logAction('delivery_select', type);
         }
 
         function goNext() {
-            // bookLogData에 저장
-            let bookLogData = null;
-            try {
-                bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-            } catch (e) { }
-
-            if (bookLogData) {
-                bookLogData.booker = {
-                    phone: document.getElementById('bookerPhone').value,
-                    email: document.getElementById('bookerEmail').value,
-                    input_time: new Date().toISOString()
-                };
-                bookLogData.delivery = {
-                    method: selectedDelivery,
-                    fee: deliveryFee,
-                    selection_time: new Date().toISOString()
-                };
-                bookLogData.mouse_trajectory_booker = mouseTrajectory;
-                bookLogData.clicks_booker = clicks_booker;
-                sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
-            }
-
-            saveLog();
             window.location.href = `/step4/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seats}&discount=${discountType}&delivery=${selectedDelivery}`;
         }
-
-        async function logAction(action, target) {
-            await fetch('/api/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: "{{ session_id }}", action, target_id: target })
-            });
-        }
-
-        async function saveLog() {
-            await fetch('/api/session-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: "{{ session_id }}",
-                    page: 'step3_booker',
-                    delivery_type: selectedDelivery,
-                    total_duration_ms: Date.now() - pageStartTime,
-                    mouse_trajectory: mouseTrajectory
-                })
-            });
-        }
-
-        document.addEventListener('mousemove', (e) => {
-            const now = Date.now();
-            if (!window.lastT || now - window.lastT >= 50) {
-                mouseTrajectory.push({ x: e.clientX, y: e.clientY, t: now - pageStartTime });
-                window.lastT = now;
-            }
-        });
 
         let timeLeft = 300;
         function updateTimer() {
@@ -468,7 +402,6 @@
             else { alert('시간 초과'); location.href = '/performances'; }
         }
         updateTimer();
-        logAction('page_enter', 'step3_booker');
     </script>
 </body>
 

@@ -459,27 +459,12 @@
         let selectedPayment = 'card';
         let captchaCode = '';
         let captchaStartTime = 0;
-        let pageStartTime = Date.now();
-        let mouseTrajectory = [];
-        let clicks = [];
-        let clicks_payment = [];
 
         function selectPayment(el, type) {
             document.querySelectorAll('.payment-option').forEach(e => e.classList.remove('selected'));
             el.classList.add('selected');
             el.querySelector('input').checked = true;
             selectedPayment = type;
-
-            // 클릭 좌표 수집
-            const rect = el.getBoundingClientRect();
-            clicks_payment.push({
-                x: Math.round(rect.left + rect.width / 2),
-                y: Math.round(rect.top + rect.height / 2),
-                target: 'payment_' + type,
-                timestamp: Date.now() - pageStartTime
-            });
-
-            logAction('payment_select', type);
         }
 
         function showCaptcha() {
@@ -496,9 +481,6 @@
 
         function verifyCaptcha() {
             const input = document.getElementById('captchaInput').value.toUpperCase();
-            const captchaTime = Date.now() - captchaStartTime;
-
-            logAction('captcha_attempt', input, { correct: input === captchaCode, time_ms: captchaTime });
 
             if (input === captchaCode) {
                 document.getElementById('captchaModal').classList.remove('active');
@@ -511,48 +493,23 @@
         }
 
         async function completeBooking() {
-            // sessionStorage에서 book 로그 데이터 로드
-            let bookLogData = null;
+            // book 로그의 session_id 가져오기
+            let bookSessionId = '';
             try {
-                bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-            } catch (e) {
-                bookLogData = null;
-            }
+                const bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
+                if (bookLogData && bookLogData.session_id) {
+                    bookSessionId = bookLogData.session_id;
+                }
+            } catch (e) { }
 
-            if (bookLogData) {
-                // 결제 정보 추가
-                bookLogData.payment = {
-                    method: selectedPayment,
-                    selection_time: new Date().toISOString()
-                };
-                bookLogData.booking_end_time = new Date().toISOString();
-                bookLogData.mouse_trajectory_payment = mouseTrajectory;
-                bookLogData.clicks_payment = clicks_payment;
-
-                // book 로그 저장 (3단계 로그 시스템)
-                await fetch('/api/stage-log', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bookLogData)
-                });
-
-                // sessionStorage 정리
-                sessionStorage.removeItem('bookLogData');
-            }
-
-            // 기존 예매 완료 API 호출
+            // 예매 완료 API 호출
             const sessionData = {
-                session_id: sessionId,
+                session_id: bookSessionId || sessionId,  // book 로그 session_id 우선 사용
                 page: 'step4_payment',
                 selected_seats: selectedSeats,
                 discount_type: discountType,
                 delivery_type: deliveryType,
-                payment_type: selectedPayment,
-                page_entry_time: new Date(pageStartTime).toISOString(),
-                page_exit_time: new Date().toISOString(),
-                total_duration_ms: Date.now() - pageStartTime,
-                mouse_trajectory: mouseTrajectory,
-                clicks: clicks
+                payment_type: selectedPayment
             };
 
             const response = await fetch('/api/complete', {
@@ -563,27 +520,12 @@
 
             const result = await response.json();
             if (result.success) {
+                // sessionStorage 정리
+                sessionStorage.removeItem('bookLogData');
                 document.getElementById('bookingId').textContent = '예매번호: ' + result.booking_id;
                 document.getElementById('completeModal').classList.add('active');
             }
         }
-
-        async function logAction(action, target, extra = {}) {
-            clicks.push({ action, target, timestamp: Date.now() - pageStartTime });
-            await fetch('/api/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionId, action, target_id: target, extra })
-            });
-        }
-
-        document.addEventListener('mousemove', (e) => {
-            const now = Date.now();
-            if (!window.lastT || now - window.lastT >= 50) {
-                mouseTrajectory.push({ x: e.clientX, y: e.clientY, t: now - pageStartTime });
-                window.lastT = now;
-            }
-        });
 
         let timeLeft = 300;
         function updateTimer() {
@@ -593,7 +535,6 @@
             else { alert('시간 초과'); location.href = '/performances'; }
         }
         updateTimer();
-        logAction('page_enter', 'step4_payment');
     </script>
 </body>
 

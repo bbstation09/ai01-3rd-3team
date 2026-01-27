@@ -364,21 +364,24 @@
                 <!-- VIP 구역 -->
                 <div class="section-row">
                     <div class="section-box vip"
-                        onclick="selectSection(this, 'VIP-L', 'VIP', {{ performance.price.VIP }})" data-section="VIP-L">
+                        onclick="selectSection(event, this, 'VIP-L', 'VIP', {{ performance.price.VIP }})"
+                        data-section="VIP-L">
                         <span class="section-grade vip">VIP</span>
                         <div class="section-name">VIP구역 좌</div>
                         <div class="section-price">{{ "{:,}".format(performance.price.VIP) }}원</div>
                         <div class="section-seats">A~D열 / 30석</div>
                     </div>
                     <div class="section-box vip"
-                        onclick="selectSection(this, 'VIP-C', 'VIP', {{ performance.price.VIP }})" data-section="VIP-C">
+                        onclick="selectSection(event, this, 'VIP-C', 'VIP', {{ performance.price.VIP }})"
+                        data-section="VIP-C">
                         <span class="section-grade vip">VIP</span>
                         <div class="section-name">VIP구역 중앙</div>
                         <div class="section-price">{{ "{:,}".format(performance.price.VIP) }}원</div>
                         <div class="section-seats">A~D열 / 30석</div>
                     </div>
                     <div class="section-box vip"
-                        onclick="selectSection(this, 'VIP-R', 'VIP', {{ performance.price.VIP }})" data-section="VIP-R">
+                        onclick="selectSection(event, this, 'VIP-R', 'VIP', {{ performance.price.VIP }})"
+                        data-section="VIP-R">
                         <span class="section-grade vip">VIP</span>
                         <div class="section-name">VIP구역 우</div>
                         <div class="section-price">{{ "{:,}".format(performance.price.VIP) }}원</div>
@@ -388,21 +391,21 @@
 
                 <!-- R석 구역 -->
                 <div class="section-row">
-                    <div class="section-box" onclick="selectSection(this, 'R-L', 'R', {{ performance.price.R }})"
+                    <div class="section-box" onclick="selectSection(event, this, 'R-L', 'R', {{ performance.price.R }})"
                         data-section="R-L">
                         <span class="section-grade r">R석</span>
                         <div class="section-name">R구역 좌</div>
                         <div class="section-price">{{ "{:,}".format(performance.price.R) }}원</div>
                         <div class="section-seats">E~L열 / 40석</div>
                     </div>
-                    <div class="section-box" onclick="selectSection(this, 'R-C', 'R', {{ performance.price.R }})"
+                    <div class="section-box" onclick="selectSection(event, this, 'R-C', 'R', {{ performance.price.R }})"
                         data-section="R-C">
                         <span class="section-grade r">R석</span>
                         <div class="section-name">R구역 중앙</div>
                         <div class="section-price">{{ "{:,}".format(performance.price.R) }}원</div>
                         <div class="section-seats">E~L열 / 40석</div>
                     </div>
-                    <div class="section-box" onclick="selectSection(this, 'R-R', 'R', {{ performance.price.R }})"
+                    <div class="section-box" onclick="selectSection(event, this, 'R-R', 'R', {{ performance.price.R }})"
                         data-section="R-R">
                         <span class="section-grade r">R석</span>
                         <div class="section-name">R구역 우</div>
@@ -414,7 +417,7 @@
                 <!-- S석 구역 -->
                 <div class="section-row">
                     <div class="section-box"
-                        onclick="selectSection(this, 'S-L', 'S', {{ performance.price.get('S', performance.price.R * 0.8)|int }})"
+                        onclick="selectSection(event, this, 'S-L', 'S', {{ performance.price.get('S', performance.price.R * 0.8)|int }})"
                         data-section="S-L">
                         <span class="section-grade s">S석</span>
                         <div class="section-name">S구역 좌</div>
@@ -423,7 +426,7 @@
                         <div class="section-seats">M~P열 / 30석</div>
                     </div>
                     <div class="section-box"
-                        onclick="selectSection(this, 'S-R', 'S', {{ performance.price.get('S', performance.price.R * 0.8)|int }})"
+                        onclick="selectSection(event, this, 'S-R', 'S', {{ performance.price.get('S', performance.price.R * 0.8)|int }})"
                         data-section="S-R">
                         <span class="section-grade s">S석</span>
                         <div class="section-name">S구역 우</div>
@@ -467,36 +470,78 @@
         let mouseTrajectory = [];
         let sectionClicks = [];
 
-        // sessionStorage에서 book 로그 로드
-        let bookLogData = null;
-        try {
-            bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-        } catch (e) { }
+        // 예매창 로그 시작 (구역선택 ~ 할인권종 진입까지)
+        const bookSessionId = 'book_' + Math.random().toString(36).substr(2, 8);
 
-        if (bookLogData) {
-            bookLogData.section_selection = {
+        // 브라우저/OS 정보 수집 (Headless Chrome, 봇 탐지용)
+        const browserInfo = {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            cookieEnabled: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack,
+            hardwareConcurrency: navigator.hardwareConcurrency,
+            deviceMemory: navigator.deviceMemory,
+            maxTouchPoints: navigator.maxTouchPoints,
+            webdriver: navigator.webdriver,  // Headless Chrome 탐지
+            screen: {
+                width: screen.width,
+                height: screen.height,
+                colorDepth: screen.colorDepth,
+                pixelRatio: window.devicePixelRatio
+            },
+            window: {
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight
+            },
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        };
+
+        const bookLogData = {
+            session_id: bookSessionId,
+            stage: 'book',
+            performance_id: perfId,
+            selected_date: selectedDate,
+            selected_time: selectedTime,
+            booking_start_time: new Date().toISOString(),
+            viewport: { w: window.innerWidth, h: window.innerHeight },
+            browser_info: browserInfo,
+            section_selection: {
                 start_time: new Date().toISOString(),
                 clicks: [],
-                final_section: null
-            };
+                final_section: null,
+                final_grade: null,
+                end_time: null,
+                mouse_trajectory: []
+            },
+            seat_selection: null,
+            discount: null,
+            booking_end_time: null
+        };
+
+        function saveBookLogToStorage() {
             sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
         }
+
+        // 초기 저장
+        saveBookLogToStorage();
 
         // 마우스 궤적 수집
         let lastMouseTime = 0;
         document.addEventListener('mousemove', (e) => {
             const now = Date.now();
-            if (now - lastMouseTime >= 100) {
+            if (now - lastMouseTime >= 30) {
                 mouseTrajectory.push({
                     x: e.clientX,
                     y: e.clientY,
+                    nx: e.clientX / window.innerWidth,
+                    ny: e.clientY / window.innerHeight,
                     t: now - pageStartTime
                 });
                 lastMouseTime = now;
             }
         });
 
-        function selectSection(el, sectionId, grade, price) {
+        function selectSection(e, el, sectionId, grade, price) {
             // 기존 선택 해제
             document.querySelectorAll('.section-box').forEach(box => box.classList.remove('selected'));
 
@@ -506,18 +551,29 @@
             selectedGrade = grade;
             selectedPrice = price;
 
-            // 클릭 좌표 수집
-            const rect = el.getBoundingClientRect();
-            const clickX = rect.left + rect.width / 2;
-            const clickY = rect.top + rect.height / 2;
+            // 실제 마우스 클릭 좌표 사용
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+
+            // 마우스 궤적에도 클릭 좌표 추가 (궤적-클릭 연결)
+            mouseTrajectory.push({
+                x: clickX,
+                y: clickY,
+                nx: clickX / window.innerWidth,
+                ny: clickY / window.innerHeight,
+                t: Date.now() - pageStartTime
+            });
 
             // 로그 기록
             sectionClicks.push({
                 section: sectionId,
                 grade: grade,
                 price: price,
-                x: Math.round(clickX),
-                y: Math.round(clickY),
+                x: clickX,
+                y: clickY,
+                nx: clickX / window.innerWidth,
+                ny: clickY / window.innerHeight,
+                viewport: { w: window.innerWidth, h: window.innerHeight },
                 timestamp: new Date().toISOString()
             });
 
@@ -526,6 +582,9 @@
                     section: sectionId,
                     x: Math.round(clickX),
                     y: Math.round(clickY),
+                    nx: clickX / window.innerWidth,
+                    ny: clickY / window.innerHeight,
+                    viewport: { w: window.innerWidth, h: window.innerHeight },
                     timestamp: new Date().toISOString()
                 });
                 sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));

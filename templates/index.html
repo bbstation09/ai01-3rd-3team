@@ -690,9 +690,13 @@
             lastActionTime = now;
 
             const rect = el.getBoundingClientRect();
+            const clickX = rect.left + rect.width / 2;
+            const clickY = rect.top + rect.height / 2;
             clicks.push({
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2,
+                x: clickX,
+                y: clickY,
+                nx: clickX / window.innerWidth,
+                ny: clickY / window.innerHeight,
                 target: seatId,
                 timestamp: now - pageStartTime
             });
@@ -805,8 +809,8 @@
             let bookLogData = null;
             try {
                 bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-            } catch(e) {}
-            
+            } catch (e) { }
+
             if (bookLogData) {
                 bookLogData.seat_selection = {
                     seats: selectedSeats,
@@ -821,7 +825,7 @@
                 bookLogData.mouse_trajectory_seats = mouseTrajectory;
                 sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
             }
-            
+
             // 좌석 선택 세션 로그 저장
             saveSessionLog().then(() => {
                 const seatsParam = selectedSeats.join(',');
@@ -883,6 +887,8 @@
                 mouseTrajectory.push({
                     x: e.clientX,
                     y: e.clientY,
+                    nx: e.clientX / window.innerWidth,
+                    ny: e.clientY / window.innerHeight,
                     timestamp: now - pageStartTime
                 });
                 window.lastTrajectoryTime = now;

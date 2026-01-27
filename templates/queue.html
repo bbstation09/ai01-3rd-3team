@@ -280,9 +280,7 @@
             <span></span>
         </div>
 
-        <button class="btn-enter" id="btnEnter" onclick="enterBooking()">
-            🎫 예매 페이지 입장
-        </button>
+        <!-- 자동 입장 (버튼 제거) -->
 
         <div class="notice">
             <p>⚠️ 페이지를 새로고침하면 대기열 순번이 초기화됩니다.<br>
@@ -321,7 +319,7 @@
         let lastMouseTime = 0;
         document.addEventListener('mousemove', (e) => {
             const now = Date.now();
-            if (now - lastMouseTime >= 100) {
+            if (now - lastMouseTime >= 30) {
                 logData.mouse_trajectory.push({
                     x: e.clientX,
                     y: e.clientY,
@@ -353,13 +351,11 @@
                         document.getElementById('progressPercent').textContent = '100%';
                         document.getElementById('estimatedTime').textContent = '입장 가능!';
                         document.getElementById('loadingDots').style.display = 'none';
-                        document.getElementById('btnEnter').classList.add('show');
 
-                        // 짧은 딜레이 후 자동 입장
+                        // 자동 입장 (버튼 없이)
                         setTimeout(() => {
-                            if (!isReady) return;
                             enterBooking();
-                        }, 1500);
+                        }, 800);
                     } else if (data.status === 'waiting') {
                         const position = data.position;
                         const progress = Math.round((1 - position / totalQueue) * 100);

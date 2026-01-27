@@ -545,6 +545,18 @@
                                 ${(botScore * 100).toFixed(0)}%
                             </div>
                         </div>
+                        <div class="detail-item">
+                            <div class="detail-label">결제 완료</div>
+                            <div class="detail-value" style="color: ${data.payment_completed ? '#28a745' : '#888'}">
+                                ${data.payment_completed ? '✅ 완료' : '❌ 미완료'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">예매번호</div>
+                            <div class="detail-value" style="font-weight: 700; color: ${data.booking_id ? '#6b4fbb' : '#888'}">
+                                ${data.booking_id || '-'}
+                            </div>
+                        </div>
                     </div>
                     
                     ${isBot ? `
@@ -601,16 +613,23 @@
         let currentZoom = 1;
         let currentTrajectory = [];
         let currentClicks = [];
+        let panOffsetX = 0;
+        let panOffsetY = 0;
+        let isPanning = false;
+        let panStartX = 0;
+        let panStartY = 0;
 
         function zoomTrajectory(factor) {
             currentZoom *= factor;
-            currentZoom = Math.max(0.5, Math.min(3, currentZoom));
+            currentZoom = Math.max(0.5, Math.min(10, currentZoom));
             document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
             drawTrajectory(currentTrajectory, currentClicks);
         }
 
         function resetZoom() {
             currentZoom = 1;
+            panOffsetX = 0;
+            panOffsetY = 0;
             document.getElementById('zoomLevel').textContent = '100%';
             drawTrajectory(currentTrajectory, currentClicks);
         }
@@ -661,8 +680,8 @@
                 drawHeight = drawWidth / aspectRatio;
             }
 
-            const offsetX = (displayWidth - drawWidth) / 2;
-            const offsetY = (displayHeight - drawHeight) / 2;
+            const offsetX = (displayWidth - drawWidth) / 2 + panOffsetX;
+            const offsetY = (displayHeight - drawHeight) / 2 + panOffsetY;
             const scaleX = drawWidth / maxX;
             const scaleY = drawHeight / maxY;
 
@@ -755,12 +774,14 @@
                 info.textContent = `해상도: ${maxX}x${maxY} | 포인트: ${trajectory.length} | 클릭: ${clicks.length}`;
             }
 
-            // 툴팁 이벤트 설정 (trajectory 추가로 시작점/끝점도 감지)
-            setupTooltip(canvas, clicks, trajectory, scaleX, scaleY, offsetX, offsetY);
+            // 툴팁 및 패닝 이벤트 설정
+            setupTooltipAndPan(canvas, clicks, trajectory, scaleX, scaleY, offsetX, offsetY);
         }
 
         let tooltipHandler = null;
-        function setupTooltip(canvas, clicks, trajectory, scaleX, scaleY, offsetX, offsetY) {
+        let panHandlers = { mousedown: null, mousemove: null, mouseup: null };
+
+        function setupTooltipAndPan(canvas, clicks, trajectory, scaleX, scaleY, offsetX, offsetY) {
             const tooltip = document.getElementById('clickTooltip');
             if (!tooltip) return;
 
@@ -768,12 +789,35 @@
             if (tooltipHandler) {
                 canvas.removeEventListener('mousemove', tooltipHandler);
             }
+            if (panHandlers.mousedown) {
+                canvas.removeEventListener('mousedown', panHandlers.mousedown);
+                canvas.removeEventListener('mousemove', panHandlers.mousemove);
+                canvas.removeEventListener('mouseup', panHandlers.mouseup);
+                canvas.removeEventListener('mouseleave', panHandlers.mouseup);
+            }
 
             // 시작점/끝점 정보
             const startPoint = trajectory.length > 0 ? trajectory[0] : null;
             const endPoint = trajectory.length > 1 ? trajectory[trajectory.length - 1] : null;
 
-            tooltipHandler = (e) => {
+            // 패닝 핸들러
+            panHandlers.mousedown = (e) => {
+                if (currentZoom <= 1) return; // 줌인 상태에서만 패닝
+                isPanning = true;
+                panStartX = e.clientX - panOffsetX;
+                panStartY = e.clientY - panOffsetY;
+                canvas.style.cursor = 'grabbing';
+            };
+
+            panHandlers.mousemove = (e) => {
+                if (isPanning) {
+                    panOffsetX = e.clientX - panStartX;
+                    panOffsetY = e.clientY - panStartY;
+                    drawTrajectory(currentTrajectory, currentClicks);
+                    return;
+                }
+
+                // 툴팁 처리
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
@@ -820,21 +864,67 @@
                     tooltip.style.display = 'block';
                     tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
                     tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+
+                    // 시간 정보 포맷팅 (ISO 기준 hh:mm:ss.ff)
+                    let timeStr = '';
+                    const formatISOTime = (date) => {
+                        const h = String(date.getHours()).padStart(2, '0');
+                        const m = String(date.getMinutes()).padStart(2, '0');
+                        const s = String(date.getSeconds()).padStart(2, '0');
+                        const f = String(Math.floor(date.getMilliseconds() / 10)).padStart(2, '0');
+                        return `${h}:${m}:${s}.${f}`;
+                    };
+
+                    // 기준 시간 (booking_start_time 또는 queue_start_time 등)
+                    const baseTime = currentLog.booking_start_time || currentLog.queue_start_time || currentLog.page_entry_time || currentLog.created_at;
+                    const baseDate = baseTime ? new Date(baseTime) : null;
+
+                    if (found.timestamp !== undefined) {
+                        if (typeof found.timestamp === 'number' && baseDate) {
+                            // ms 단위 상대 시간 → 절대 시간
+                            const actualTime = new Date(baseDate.getTime() + found.timestamp);
+                            timeStr = `<div class="coords">시간: ${formatISOTime(actualTime)}</div>`;
+                        } else if (typeof found.timestamp === 'string') {
+                            // ISO 시간
+                            timeStr = `<div class="coords">시간: ${formatISOTime(new Date(found.timestamp))}</div>`;
+                        } else if (typeof found.timestamp === 'number') {
+                            // 기준 시간 없으면 상대 표시
+                            const sec = (found.timestamp / 1000).toFixed(1);
+                            timeStr = `<div class="coords">시간: +${sec}초</div>`;
+                        }
+                    } else if (found.t !== undefined && baseDate) {
+                        // 궤적 포인트 (ms 단위) → 절대 시간
+                        const actualTime = new Date(baseDate.getTime() + found.t);
+                        timeStr = `<div class="coords">시간: ${formatISOTime(actualTime)}</div>`;
+                    } else if (found.t !== undefined) {
+                        const sec = (found.t / 1000).toFixed(1);
+                        timeStr = `<div class="coords">시간: +${sec}초</div>`;
+                    }
+
                     tooltip.innerHTML = `
                         <div class="stage">${pointType} | ${found.stage || '기타'}</div>
-                        <div class="coords">좌표: (${found.x}, ${found.y})</div>
+                        <div class="coords">좌표: (${Math.round(found.x)}, ${Math.round(found.y)})</div>
+                        ${timeStr}
                         ${found.target ? `<div class="target">대상: ${found.target}</div>` : ''}
                     `;
                     canvas.style.cursor = 'pointer';
                 } else {
                     tooltip.style.display = 'none';
-                    canvas.style.cursor = 'default';
+                    canvas.style.cursor = currentZoom > 1 ? 'grab' : 'default';
                 }
             };
 
-            canvas.addEventListener('mousemove', tooltipHandler);
+            panHandlers.mouseup = () => {
+                isPanning = false;
+                canvas.style.cursor = currentZoom > 1 ? 'grab' : 'default';
+            };
+
+            canvas.addEventListener('mousedown', panHandlers.mousedown);
+            canvas.addEventListener('mousemove', panHandlers.mousemove);
+            canvas.addEventListener('mouseup', panHandlers.mouseup);
             canvas.addEventListener('mouseleave', () => {
                 tooltip.style.display = 'none';
+                isPanning = false;
             });
         }
     </script>
