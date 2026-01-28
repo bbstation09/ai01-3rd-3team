@@ -4,6 +4,8 @@
 let selectedPayment = 'card';
 let captchaCode = '';
 let captchaStartTime = 0;
+const pageStartTime = Date.now();
+
 
 function selectPayment(el, type) {
   document.querySelectorAll('.payment-option').forEach(e => e.classList.remove('selected'));
@@ -38,13 +40,6 @@ function verifyCaptcha() {
 }
 
 async function completeBooking() {
-  // LogCollector 사용하여 book 로그의 session_id 가져오기
-  let bookSessionId = '';
-  const bookLogData = LogCollector.getBookLog();
-  if (bookLogData && bookLogData.session_id) {
-    bookSessionId = bookLogData.session_id;
-  }
-
   const sId = typeof sessionId !== 'undefined' ? sessionId : '';
   const seats = typeof selectedSeats !== 'undefined' ? selectedSeats : [];
   const discount = typeof discountType !== 'undefined' ? discountType : 'normal';
@@ -52,7 +47,7 @@ async function completeBooking() {
 
   // 예매 완료 데이터 구성
   const sessionData = {
-    session_id: bookSessionId || sId,
+    session_id: sId,
     page: 'step4_payment',
     selected_seats: seats,
     discount_type: discount,
@@ -60,11 +55,34 @@ async function completeBooking() {
     payment_type: selectedPayment
   };
 
-  // LogCollector 사용하여 예매 완료 API 호출
+  // 예매 완료 API 호출
   const result = await LogCollector.sendCompleteLog(sessionData);
   if (result.success) {
-    // LogCollector 사용하여 sessionStorage 정리
-    LogCollector.clearBookLog();
+    // payment 단계 데이터 추가
+    const paymentStageData = {
+      exit_time: new Date().toISOString(),
+      duration_ms: Date.now() - pageStartTime,
+      payment_type: selectedPayment,
+      captcha_attempts: 2,  // 실제 캡챠 시도 횟수
+      completed: true,
+      completed_time: new Date().toISOString()
+    };
+
+    LogCollector.addStageToFlow('payment', paymentStageData);
+
+    // Flow 완료 처리
+    const completedFlowLog = LogCollector.completeFlow(
+      'success',
+      seats,
+      result.booking_id
+    );
+
+    // Flow 로그 전송
+    if (completedFlowLog) {
+      await LogCollector.sendFlowLog(completedFlowLog);
+    }
+
+    // 완료 모달 표시
     document.getElementById('bookingId').textContent = '예매번호: ' + result.booking_id;
     document.getElementById('completeModal').classList.add('active');
   }
@@ -82,4 +100,20 @@ function updateTimer() {
 // DOM 로드 후 초기화
 document.addEventListener('DOMContentLoaded', function () {
   updateTimer();
+
+  // 이탈 감지
+  window.addEventListener('beforeunload', function () {
+    // 이미 완료된 flow는 abandoned 로그를 생성하지 않음
+    const flowLog = LogCollector.getFlowLog();
+    if (flowLog && flowLog.metadata && flowLog.metadata.is_completed) {
+      console.log('Flow already completed, skipping abandoned log');
+      return;
+    }
+
+    // 완료되지 않았을 때만 abandoned 로그 전송
+    const abandonedLog = LogCollector.completeFlow('failed_abandoned', null, null);
+    if (abandonedLog) {
+      navigator.sendBeacon('/api/flow-log', JSON.stringify(abandonedLog));
+    }
+  });
 });

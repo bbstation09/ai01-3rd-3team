@@ -31,6 +31,16 @@ function verifyCaptcha() {
   const sTime = typeof selectedTime !== 'undefined' ? selectedTime : '';
 
   if (input === captchaCode) {
+    // captcha 단계 데이터 추가
+    const captchaStageData = {
+      exit_time: new Date().toISOString(),
+      duration_ms: Date.now() - pageStartTime,
+      attempts: attemptCount,
+      time_to_solve_ms: Date.now() - captchaStartTime
+    };
+
+    LogCollector.addStageToFlow('captcha', captchaStageData);
+
     // 성공 - 구역 선택 페이지로 이동
     window.location.href = `/section/${pId}?date=${sDate}&time=${sTime}`;
   } else {
@@ -72,5 +82,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // 엔터키 처리
   document.getElementById('captchaInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') verifyCaptcha();
+  });
+
+  // 이탈 감지
+  window.addEventListener('beforeunload', function () {
+    const flowLog = LogCollector.completeFlow('failed_abandoned', null, null);
+    if (flowLog) {
+      navigator.sendBeacon('/api/flow-log', JSON.stringify(flowLog));
+    }
   });
 });

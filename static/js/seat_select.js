@@ -220,29 +220,24 @@ function updatePrice() {
 }
 
 function goToCheckout() {
-  // LogCollector 사용하여 bookLogData 가져오기 및 업데이트
-  let bookLogData = LogCollector.getBookLog();
+  // seat 단계 데이터 추가
+  const seatStageData = {
+    exit_time: new Date().toISOString(),
+    duration_ms: Date.now() - pageStartTime,
+    selected_seats: selectedSeats,
+    section: selectedSection,
+    grade: selectedGrade,
+    clicks: clicks,
+    hovers: hovers,
+    seat_taken_events: [],  // 이선좌 이벤트 (필요 시 추가)
+    mouse_trajectory: mouseTrajectory
+  };
 
-  if (bookLogData) {
-    bookLogData.seat_selection = {
-      seats: selectedSeats,
-      section: selectedSection,
-      grade: selectedGrade,
-      start_time: new Date(pageStartTime).toISOString(),
-      end_time: new Date().toISOString(),
-      duration_ms: Date.now() - pageStartTime,
-      clicks: clicks,
-      hovers: hovers
-    };
-    bookLogData.mouse_trajectory_seats = mouseTrajectory;
-    LogCollector.saveBookLog(bookLogData);
-  }
+  LogCollector.addStageToFlow('seat', seatStageData);
 
-  // LogCollector 사용하여 좌석 선택 세션 로그 저장
-  saveSessionLog().then(() => {
-    const seatsParam = selectedSeats.join(',');
-    window.location.href = `/step2/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seatsParam}`;
-  });
+  // 다음 페이지로 이동
+  const seatsParam = selectedSeats.join(',');
+  window.location.href = `/step2/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seatsParam}`;
 }
 
 async function saveSessionLog() {
@@ -259,7 +254,8 @@ async function saveSessionLog() {
     hovers: hovers
   };
 
-  await LogCollector.sendSessionLog(sessionData);
+  // Legacy session log 제거 - Flow 기반 로그만 사용
+  // await LogCollector.sendSessionLog(sessionData);
 }
 
 async function logAction(action, targetId, x = 0, y = 0, timeDelta = 0, extra = {}) {
@@ -340,4 +336,12 @@ document.addEventListener('DOMContentLoaded', function () {
   updateTimer();
   setInterval(autoReserve, 10000);
   logAction('page_enter', 'seat_selection_page');
+
+  // 이탈 감지
+  window.addEventListener('beforeunload', function () {
+    const flowLog = LogCollector.completeFlow('failed_abandoned', null, null);
+    if (flowLog) {
+      navigator.sendBeacon('/api/flow-log', JSON.stringify(flowLog));
+    }
+  });
 });

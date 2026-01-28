@@ -98,6 +98,27 @@ function checkSelection() {
 }
 
 function goToQueue() {
+  // 공연 정보 조회
+  const perf = performances.find(p => p.id === currentPerfId);
+  if (!perf) {
+    alert('공연 정보를 찾을 수 없습니다.');
+    return;
+  }
+
+  // 1. Flow 로그 초기화 (예매 시도 시작)
+  const userId = typeof user !== 'undefined' && user ? user.user_id : '';
+  const userEmail = typeof user !== 'undefined' && user ? user.email : '';
+
+  LogCollector.initFlowLog(
+    currentPerfId,
+    perf.title,
+    selectedDate,
+    selectedTime,
+    userId,
+    userEmail
+  );
+
+  // 2. perf 단계 데이터 추가
   logData.page_exit_time = new Date().toISOString();
   logData.selected_date = selectedDate;
   logData.selected_time = selectedTime;
@@ -109,12 +130,20 @@ function goToQueue() {
     timestamp: new Date().toISOString()
   });
 
-  // LogCollector 사용하여 로그 저장 후 페이지 이동
-  LogCollector.sendStageLog(logData).then(() => {
-    window.location.href = `/queue/${currentPerfId}?date=${selectedDate}&time=${selectedTime}`;
-  }).catch(() => {
-    window.location.href = `/queue/${currentPerfId}?date=${selectedDate}&time=${selectedTime}`;
-  });
+  const perfStageData = {
+    exit_time: new Date().toISOString(),
+    duration_ms: Date.now() - new Date(logData.page_entry_time).getTime(),
+    card_clicks: logData.card_clicks,
+    date_selections: logData.date_selections,
+    time_selections: logData.time_selections,
+    actions: logData.actions,
+    mouse_trajectory: logData.mouse_trajectory
+  };
+
+  LogCollector.addStageToFlow('perf', perfStageData);
+
+  // 3. 다음 페이지로 이동
+  window.location.href = `/queue/${currentPerfId}?date=${selectedDate}&time=${selectedTime}`;
 }
 
 // 모달 외부 클릭 시 닫기

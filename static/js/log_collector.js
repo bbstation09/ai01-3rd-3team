@@ -205,69 +205,192 @@ const LogCollector = {
     return { logData, pageStartTime };
   },
 
-  // ============== 로그 전송 함수 ==============
+  // ============== Flow 기반 로그 관리 ==============
 
   /**
-   * Stage 로그 전송 (perf, que, book)
-   * @param {object} logData - 로그 데이터
-   * @returns {Promise} fetch 프로미스
-   * from: perf_list.js, queue.js, discount_select.js
+   * Flow 로그 초기화 (예매 시도 시작)
+   * @param {string} perfId - 공연 ID
+   * @param {string} perfTitle - 공연 제목
+   * @param {string} selectedDate - 선택한 날짜
+   * @param {string} selectedTime - 선택한 시간
+   * @param {string} userId - 사용자 ID
+   * @param {string} userEmail - 사용자 이메일
+   * @returns {object} flowLog 객체
+   * from: perf_list.js
    */
-  sendStageLog: async function (logData) {
+  initFlowLog: function (perfId, perfTitle, selectedDate, selectedTime, userId, userEmail) {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+    const randomStr = Math.random().toString(36).substr(2, 6);
+    const flowId = `flow_${dateStr}_${randomStr}`;
+    const sessionId = 'sess_' + Math.random().toString(36).substr(2, 8);
+
+    const flowLog = {
+      metadata: {
+        flow_id: flowId,
+        session_id: sessionId,
+        user_id: userId || '',
+        user_email: userEmail || '',
+        user_ip: null,  // 서버에서 설정
+        created_at: now.toISOString(),
+
+        performance_id: perfId || '',
+        performance_title: perfTitle || '',
+        selected_date: selectedDate || '',
+        selected_time: selectedTime || '',
+
+        flow_start_time: now.toISOString(),
+        flow_end_time: null,
+        total_duration_ms: null,
+
+        is_completed: false,
+        completion_status: 'ongoing',
+        final_seats: null,
+        booking_id: null,
+
+        browser_info: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          cookieEnabled: navigator.cookieEnabled,
+          doNotTrack: navigator.doNotTrack,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+          deviceMemory: navigator.deviceMemory,
+          maxTouchPoints: navigator.maxTouchPoints,
+          webdriver: navigator.webdriver,
+          screen: {
+            width: screen.width,
+            height: screen.height,
+            colorDepth: screen.colorDepth,
+            pixelRatio: window.devicePixelRatio
+          },
+          window: {
+            outerWidth: window.outerWidth,
+            outerHeight: window.outerHeight
+          },
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }
+      },
+      stages: {}
+    };
+
+    sessionStorage.setItem('flowLogData', JSON.stringify(flowLog));
+    console.log('Flow log initialized:', flowId);
+
+    // 초기 로그 서버 전송 (파일 생성)
+    this.sendFlowLog(flowLog);
+
+    return flowLog;
+  },
+
+  /**
+   * Stage 데이터 추가 (각 페이지 진입/이탈 시 호출)
+   * @param {string} stageName - 단계명 ('perf', 'queue', 'seat', etc.)
+   * @param {object} stageData - 단계별 특화 데이터
+   */
+  addStageToFlow: function (stageName, stageData) {
     try {
-      const response = await fetch('/api/stage-log', {
+      const flowLog = JSON.parse(sessionStorage.getItem('flowLogData') || '{}');
+      if (!flowLog.metadata) {
+        console.warn('No flow log found to add stage:', stageName);
+        return;
+      }
+
+      // stageData에 기본 정보 추가
+      const enhancedStageData = {
+        ...stageData,
+        entry_time: stageData.entry_time || new Date().toISOString()
+      };
+
+      flowLog.stages[stageName] = enhancedStageData;
+
+      sessionStorage.setItem('flowLogData', JSON.stringify(flowLog));
+      console.log('Stage added to flow:', stageName);
+
+      // 변경된 로그 서버 전송 (업데이트)
+      this.sendFlowLog(flowLog);
+
+    } catch (e) {
+      console.error('Failed to add stage to flow:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Flow 로그 완료 처리
+   * @param {string} status - 완료 상태 ('success', 'failed_seat_taken', 'failed_timeout', 'failed_abandoned')
+   * @param {Array} finalSeats - 최종 선택 좌석
+   * @param {string} bookingId - 예매 번호
+   * @returns {object|null} 완료된 flowLog 또는 null
+   */
+  completeFlow: function (status, finalSeats, bookingId) {
+    try {
+      const flowLog = JSON.parse(sessionStorage.getItem('flowLogData') || '{}');
+      if (!flowLog.metadata) {
+        console.warn('No flow log found to complete');
+        return null;
+      }
+
+      const now = new Date();
+      const startTime = new Date(flowLog.metadata.flow_start_time);
+
+      flowLog.metadata.flow_end_time = now.toISOString();
+      flowLog.metadata.total_duration_ms = now - startTime;
+      flowLog.metadata.is_completed = (status === 'success');
+      flowLog.metadata.completion_status = status;
+      flowLog.metadata.final_seats = finalSeats || null;
+      flowLog.metadata.booking_id = bookingId || null;
+
+      // 즉시 sessionStorage에 저장하여 beforeunload 이벤트에서 is_completed 플래그를 확인 가능하게 함
+      sessionStorage.setItem('flowLogData', JSON.stringify(flowLog));
+
+      console.log('Flow completed:', status);
+      return flowLog;
+    } catch (e) {
+      console.error('Failed to complete flow:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Flow 로그 전송
+   * @param {object} flowLog - 전송할 flowLog
+   * @returns {Promise} fetch 프로미스
+   */
+  sendFlowLog: async function (flowLog) {
+    try {
+      const response = await fetch('/api/flow-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(logData)
+        body: JSON.stringify(flowLog)
       });
+
+      if (response.ok) {
+        // 누적 업데이트 방식이므로 sessionStorage를 삭제하지 않음
+        console.log('Flow log sent successfully');
+      }
+
       return response;
     } catch (error) {
-      console.error('Failed to send stage log:', error);
+      console.error('Failed to send flow log:', error);
       throw error;
     }
   },
 
   /**
-   * 세션 로그 전송
-   * @param {object} sessionData - 세션 데이터
-   * @returns {Promise} fetch 프로미스
-   * from: seat_select.js
+   * SessionStorage에서 flowLogData 가져오기
+   * @returns {object|null} flowLog 또는 null
    */
-  sendSessionLog: async function (sessionData) {
+  getFlowLog: function () {
     try {
-      const response = await fetch('/api/session-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionData)
-      });
-      return response;
-    } catch (error) {
-      console.error('Failed to send session log:', error);
-      throw error;
+      const data = sessionStorage.getItem('flowLogData');
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      console.error('Failed to get flow log:', e);
+      return null;
     }
   },
 
-  /**
-   * 예매 완료 로그 전송
-   * @param {object} sessionData - 세션 데이터
-   * @returns {Promise} fetch 프로미스
-   * from: payment.js
-   */
-  sendCompleteLog: async function (sessionData) {
-    try {
-      const response = await fetch('/api/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionData)
-      });
-      return response.json();
-    } catch (error) {
-      console.error('Failed to send complete log:', error);
-      throw error;
-    }
-  },
-
-  // ============== SessionStorage 관리 ==============
+  // ============== SessionStorage 관리 (Legacy - 하위 호환성) ==============
 
   /**
    * SessionStorage에서 bookLogData 가져오기
@@ -307,7 +430,27 @@ const LogCollector = {
     } catch (e) {
       console.error('Failed to clear book log:', e);
     }
+  },
+
+  /**
+   * 예매 완료 API 호출 (Legacy - payment.js에서 사용)
+   * @param {object} sessionData - 예매 완료 데이터
+   * @returns {Promise<object>} API 응답
+   */
+  sendCompleteLog: async function (sessionData) {
+    try {
+      const response = await fetch('/api/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to send complete log:', error);
+      return { success: false, error: error.message };
+    }
   }
+
 };
 
 // 전역 객체로 노출

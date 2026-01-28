@@ -108,14 +108,19 @@ function goToSeats() {
   const sDate = typeof selectedDate !== 'undefined' ? selectedDate : '';
   const sTime = typeof selectedTime !== 'undefined' ? selectedTime : '';
 
-  if (bookLogData) {
-    bookLogData.section_selection.end_time = new Date().toISOString();
-    bookLogData.section_selection.final_section = selectedSection;
-    bookLogData.section_selection.final_grade = selectedGrade;
-    bookLogData.section_selection.mouse_trajectory = mouseTrajectory;
-    LogCollector.saveBookLog(bookLogData);
-  }
+  // section 단계 데이터 추가
+  const sectionStageData = {
+    exit_time: new Date().toISOString(),
+    duration_ms: Date.now() - pageStartTime,
+    final_section: selectedSection,
+    final_grade: selectedGrade,
+    clicks: sectionClicks,
+    mouse_trajectory: mouseTrajectory
+  };
 
+  LogCollector.addStageToFlow('section', sectionStageData);
+
+  // 다음 페이지로 이동
   window.location.href = `/booking/${pId}?date=${sDate}&time=${sTime}&section=${selectedSection}&grade=${selectedGrade}`;
 }
 
@@ -137,6 +142,14 @@ function updateTimer() {
 
 // DOM 로드 후 초기화
 document.addEventListener('DOMContentLoaded', function () {
-  saveBookLogToStorage();
   updateTimer();
+  LogCollector.initMouseTracking(mouseTrajectory, 50, Date.now(), true);
+
+  // 이탈 감지
+  window.addEventListener('beforeunload', function () {
+    const flowLog = LogCollector.completeFlow('failed_abandoned', null, null);
+    if (flowLog) {
+      navigator.sendBeacon('/api/flow-log', JSON.stringify(flowLog));
+    }
+  });
 });

@@ -694,58 +694,152 @@ async def save_log(request: Request):
     await save_csv_log(log_entry)
     return {"success": True}
 
-@app.post("/api/session-log")
-async def save_session_log_api(request: Request):
-    """세션 로그 저장 API (기존 방식)"""
-    data = await request.json()
-    client_ip = request.client.host if request.client else "unknown"
-    
-    session_data = {
-        **data,
-        "user_ip": client_ip,
-        "user_id": request.session.get("user_id", ""),
-        "saved_at": datetime.now().isoformat()
-    }
-    
-    filename = await save_session_log(session_data)
-    return {"success": True, "filename": filename}
+# ============== LEGACY API: session-log (DISABLED) ==============
+# Flow 기반 로그만 사용하므로 비활성화
+# @app.post("/api/session-log")
+# async def save_session_log_api(request: Request):
+#     """세션 로그 저장 API (기존 방식)"""
+#     data = await request.json()
+#     client_ip = request.client.host if request.client else "unknown"
+#     
+#     session_data = {
+#         **data,
+#         "user_ip": client_ip,
+#         "user_id": request.session.get("user_id", ""),
+#         "saved_at": datetime.now().isoformat()
+#     }
+#     
+#     filename = await save_session_log(session_data)
+#     return {"success": True, "filename": filename}
 
-@app.post("/api/stage-log")
-async def save_stage_log(request: Request):
-    """3단계 로그 저장 API (perf, que, book)"""
-    data = await request.json()
-    client_ip = request.client.host if request.client else "unknown"
+
+# ============== LEGACY API: stage-log (DISABLED) ==============
+# Flow 기반 로그만 사용하므로 비활성화
+# @app.post("/api/stage-log")
+# async def save_stage_log(request: Request):
+#     """3단계 로그 저장 API (perf, que, book)"""
+#     data = await request.json()
+#     client_ip = request.client.host if request.client else "unknown"
+#     
+#     session_id = data.get("session_id", str(uuid.uuid4())[:8])
+#     stage = data.get("stage", "unknown")  # perf, que, book
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     
+#     # 사용자 정보 조회
+#     user_id = request.session.get("user_id", "")
+#     user_email = ""
+#     if user_id:
+#         users = load_users()
+#         if user_id in users:
+#             user_email = users[user_id].get("email", user_id)
+#     
+#     # 파일명: {세션ID}_{날짜시간}_{단계명}.json
+#     filename = f"{session_id}_{timestamp}_{stage}.json"
+#     filepath = os.path.join(LOGS_DIR, filename)
+#     
+#     log_data = {
+#         "session_id": session_id,
+#         "stage": stage,
+#         "user_ip": client_ip,
+#         "user_id": user_id,
+#         "user_email": user_email,
+#         "created_at": datetime.now().isoformat(),
+#         **data
+#     }
+#     
+#     async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
+#         await f.write(json.dumps(log_data, ensure_ascii=False, indent=2))
+#     
+#     return {"success": True, "filename": filename, "stage": stage}
+
+
+@app.post("/api/flow-log")
+@app.post("/api/flow-log")
+async def save_flow_log(request: Request):
+    """Flow 로그 저장 API (누적 업데이트 지원)"""
+    try:
+        data = await request.json()
+        client_ip = request.client.host if request.client else "unknown"
+        
+        # IP 주소 추가
+        if 'metadata' in data:
+            data['metadata']['user_ip'] = client_ip
+        
+        # 메타데이터 추출
+        metadata = data.get('metadata', {})
+        flow_id = metadata.get('flow_id', 'unknown')
+        perf_id = metadata.get('performance_id', 'unknown')
+        status = metadata.get('completion_status', 'ongoing') # 기본값 ongoing
+        created_at = metadata.get('created_at', datetime.now().isoformat())
+        
+        if flow_id == 'unknown':
+            return {"success": False, "error": "Missing flow_id"}
+
+        # 날짜 추출 (YYYYMMDD)
+        try:
+            date_str = created_at[:10].replace('-', '')
+        except:
+            date_str = datetime.now().strftime('%Y%m%d')
+            
+        # 기존 파일 찾기 (동일한 flow_id를 가진 파일 검색)
+        existing_filepath = None
+        existing_filename = None
+        
+        if os.path.exists(LOGS_DIR):
+            for f in os.listdir(LOGS_DIR):
+                if flow_id in f and f.endswith('.json'):
+                    existing_filename = f
+                    existing_filepath = os.path.join(LOGS_DIR, f)
+                    break
+        
+        final_data = data
+        
+        # 기존 파일이 있으면 병합 (Merge)
+        if existing_filepath:
+            try:
+                async with aiofiles.open(existing_filepath, 'r', encoding='utf-8') as f:
+                    content = await f.read()
+                    existing_data = json.loads(content)
+                    
+                # 메타데이터 업데이트 (최신 정보로 덮어쓰기)
+                if 'metadata' in existing_data:
+                    existing_data['metadata'].update(metadata)
+                else:
+                    existing_data['metadata'] = metadata
+                    
+                # 스테이지 데이터 병합 (기존 스테이지 유지하면서 새 스테이지 추가/업데이트)
+                if 'stages' in data and 'stages' in existing_data:
+                    existing_data['stages'].update(data['stages'])
+                elif 'stages' in data:
+                    existing_data['stages'] = data['stages']
+                    
+                final_data = existing_data
+                print(f"🔄 Merging flow log for {flow_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to read existing log, overwriting: {e}")
+        
+        # 새 파일명 생성
+        new_filename = f"{date_str}_{perf_id}_{flow_id}_{status}.json"
+        new_filepath = os.path.join(LOGS_DIR, new_filename)
+        
+        # 저장
+        async with aiofiles.open(new_filepath, 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(final_data, ensure_ascii=False, indent=2))
+            
+        # 파일명이 변경되었고 기존 파일이 존재하면 기존 파일 삭제 (상태 변경 시)
+        if existing_filepath and existing_filename != new_filename:
+            try:
+                os.remove(existing_filepath)
+                print(f"🗑️ Removed old log file: {existing_filename}")
+            except Exception as e:
+                print(f"⚠️ Failed to remove old log file: {e}")
+        
+        print(f"✅ Flow log saved: {new_filename}")
+        return {"success": True, "flow_id": flow_id, "filename": new_filename}
     
-    session_id = data.get("session_id", str(uuid.uuid4())[:8])
-    stage = data.get("stage", "unknown")  # perf, que, book
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # 사용자 정보 조회
-    user_id = request.session.get("user_id", "")
-    user_email = ""
-    if user_id:
-        users = load_users()
-        if user_id in users:
-            user_email = users[user_id].get("email", user_id)
-    
-    # 파일명: {세션ID}_{날짜시간}_{단계명}.json
-    filename = f"{session_id}_{timestamp}_{stage}.json"
-    filepath = os.path.join(LOGS_DIR, filename)
-    
-    log_data = {
-        "session_id": session_id,
-        "stage": stage,
-        "user_ip": client_ip,
-        "user_id": user_id,
-        "user_email": user_email,
-        "created_at": datetime.now().isoformat(),
-        **data
-    }
-    
-    async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
-        await f.write(json.dumps(log_data, ensure_ascii=False, indent=2))
-    
-    return {"success": True, "filename": filename, "stage": stage}
+    except Exception as e:
+        print(f"❌ Failed to save flow log: {e}")
+        return {"success": False, "error": str(e)}
 
 @app.post("/api/complete")
 async def complete_booking(request: Request):
@@ -804,30 +898,31 @@ async def complete_booking(request: Request):
             print(f"book 로그 처리 실패 ({filename}): {e}")
             continue
     
-    # 세션 로그 저장
-    session_data = {
-        **data,
-        "user_ip": client_ip,
-        "user_id": request.session.get("user_id", ""),
-        "is_bot": False,
-        "booking_id": booking_id,
-        "completed_at": datetime.now().isoformat()
-    }
-    await save_session_log(session_data)
+    
+    # Legacy 로그 생성 비활성화 - Flow 기반 로그만 사용
+    # session_data = {
+    #     **data,
+    #     "user_ip": client_ip,
+    #     "user_id": request.session.get("user_id", ""),
+    #     "is_bot": False,
+    #     "booking_id": booking_id,
+    #     "completed_at": datetime.now().isoformat()
+    # }
+    # await save_session_log(session_data)
     
     booking_count += 1
     
-    # 6회 예매마다 봇 로그 생성
-    if booking_count % 6 == 0:
-        bot_types = ["fast_click", "linear_move", "repeat_pattern", "slow_auto", "fixed_coord"]
-        for _ in range(2):
-            bot_type = random.choice(bot_types)
-            bot_log = generate_bot_log(bot_type)
-            await save_session_log(bot_log)
-        
-        # 대기열 봇 1개
-        queue_bot = generate_bot_log("queue_bypass")
-        await save_session_log(queue_bot)
+    # 봇 로그 생성도 비활성화 - Flow 기반 로그만 사용
+    # if booking_count % 6 == 0:
+    #     bot_types = ["fast_click", "linear_move", "repeat_pattern", "slow_auto", "fixed_coord"]
+    #     for _ in range(2):
+    #         bot_type = random.choice(bot_types)
+    #         bot_log = generate_bot_log(bot_type)
+    #         await save_session_log(bot_log)
+    #     
+    #     # 대기열 봇 1개
+    #     queue_bot = generate_bot_log("queue_bypass")
+    #     await save_session_log(queue_bot)
     
     return {"success": True, "booking_id": booking_id}
 

@@ -4,30 +4,6 @@
 let selectedDiscount = 'normal';
 let pageStartTime = Date.now();
 
-// ============== LogCollector 사용 ==============
-// 페이지 진입 시 book 로그 서버 전송 (로그 수집 종료 시점)
-async function sendBookLog() {
-  let bookLogData = LogCollector.getBookLog();
-
-  if (bookLogData) {
-    bookLogData.booking_end_time = new Date().toISOString();
-    bookLogData.discount = {
-      page_entry_time: new Date().toISOString()
-    };
-
-    // LogCollector 사용하여 서버로 로그 전송
-    try {
-      await LogCollector.sendStageLog(bookLogData);
-      console.log('Book log sent successfully');
-    } catch (e) {
-      console.error('Failed to send book log:', e);
-    }
-
-    // LogCollector 사용하여 sessionStorage 정리
-    LogCollector.clearBookLog();
-  }
-}
-
 function selectDiscount(el, type) {
   document.querySelectorAll('.discount-option').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
@@ -41,6 +17,16 @@ function goNext() {
   const sTime = typeof selectedTime !== 'undefined' ? selectedTime : '';
   const seats = typeof selectedSeats !== 'undefined' ? selectedSeats : '';
 
+  // discount 단계 데이터 추가
+  const discountStageData = {
+    exit_time: new Date().toISOString(),
+    duration_ms: Date.now() - pageStartTime,
+    selected_discount: selectedDiscount
+  };
+
+  LogCollector.addStageToFlow('discount', discountStageData);
+
+  // 다음 페이지로 이동
   window.location.href = `/step3/${pId}?date=${sDate}&time=${sTime}&seats=${seats}&discount=${selectedDiscount}`;
 }
 

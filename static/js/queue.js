@@ -66,18 +66,26 @@ function updateQueue() {
 }
 
 function enterBooking() {
-  logData.entry_time = new Date().toISOString();
-
   const pId = typeof perfId !== 'undefined' ? perfId : '';
   const sDate = typeof selectedDate !== 'undefined' ? selectedDate : '';
   const sTime = typeof selectedTime !== 'undefined' ? selectedTime : '';
 
-  // LogCollector 사용하여 로그 저장 후 페이지 이동
-  LogCollector.sendStageLog(logData).then(() => {
-    window.location.href = `/captcha/${pId}?date=${sDate}&time=${sTime}`;
-  }).catch(() => {
-    window.location.href = `/captcha/${pId}?date=${sDate}&time=${sTime}`;
-  });
+  // queue 단계 데이터 추가
+  const queueStageData = {
+    exit_time: new Date().toISOString(),
+    duration_ms: Date.now() - new Date(logData.queue_start_time).getTime(),
+    initial_position: logData.initial_position,
+    final_position: 0,
+    total_queue: logData.total_queue,
+    wait_duration_ms: logData.wait_duration_ms,
+    position_updates: logData.position_updates,
+    mouse_trajectory: logData.mouse_trajectory
+  };
+
+  LogCollector.addStageToFlow('queue', queueStageData);
+
+  // 다음 페이지로 이동
+  window.location.href = `/captcha/${pId}?date=${sDate}&time=${sTime}`;
 }
 
 // 1초마다 대기열 업데이트
@@ -86,4 +94,12 @@ setInterval(updateQueue, 1000);
 // DOM 로드 후 초기화
 document.addEventListener('DOMContentLoaded', function () {
   updateQueue();
+
+  // 이탈 감지
+  window.addEventListener('beforeunload', function () {
+    const flowLog = LogCollector.completeFlow('failed_abandoned', null, null);
+    if (flowLog) {
+      navigator.sendBeacon('/api/flow-log', JSON.stringify(flowLog));
+    }
+  });
 });
