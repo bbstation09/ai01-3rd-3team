@@ -20,21 +20,8 @@ function saveBookLogToStorage() {
   LogCollector.saveBookLog(bookLogData);
 }
 
-// 마우스 궤적 수집
-let lastMouseTime = 0;
-document.addEventListener('mousemove', (e) => {
-  const now = Date.now();
-  if (now - lastMouseTime >= 30) {
-    mouseTrajectory.push({
-      x: e.clientX,
-      y: e.clientY,
-      nx: e.clientX / window.innerWidth,
-      ny: e.clientY / window.innerHeight,
-      t: now - pageStartTime
-    });
-    lastMouseTime = now;
-  }
-});
+// 마우스 궤적 수집 (LogCollector 사용 - 압축 포맷)
+LogCollector.initMouseTracking(mouseTrajectory, 30, pageStartTime, false);
 
 function selectSection(e, el, sectionId, grade, price) {
   // 기존 선택 해제
@@ -50,38 +37,35 @@ function selectSection(e, el, sectionId, grade, price) {
   const clickX = e.clientX;
   const clickY = e.clientY;
 
-  // 마우스 궤적에도 클릭 좌표 추가 (궤적-클릭 연결)
-  mouseTrajectory.push({
-    x: clickX,
-    y: clickY,
-    nx: clickX / window.innerWidth,
-    ny: clickY / window.innerHeight,
-    t: Date.now() - pageStartTime
-  });
+  // 클릭 메트릭 가져오기 (매크로 탐지)
+  const clickMetrics = LogCollector.getClickMetrics(clickX, clickY);
+
+  // 마우스 궤적에도 클릭 좌표 추가 (궤적-클릭 연결) - 압축 포맷 [x, y, t]
+  mouseTrajectory.push([
+    Math.floor(clickX),
+    Math.floor(clickY),
+    Date.now() - pageStartTime
+  ]);
 
   // 로그 기록
-  sectionClicks.push({
+  const clickData = {
     section: sectionId,
     grade: grade,
     price: price,
-    x: clickX,
-    y: clickY,
-    nx: clickX / window.innerWidth,
-    ny: clickY / window.innerHeight,
+    x: Math.floor(clickX),
+    y: Math.floor(clickY),
+    // nx, ny는 필요하다면 유지, 용량 줄이려면 제거 가능. 일단 유지하되 정밀도 제한
+    nx: parseFloat((clickX / window.innerWidth).toFixed(4)),
+    ny: parseFloat((clickY / window.innerHeight).toFixed(4)),
     viewport: { w: window.innerWidth, h: window.innerHeight },
-    timestamp: new Date().toISOString()
-  });
+    timestamp: new Date().toISOString(),
+    ...clickMetrics // is_trusted, click_duration, is_integer 추가
+  };
+
+  sectionClicks.push(clickData);
 
   if (bookLogData) {
-    bookLogData.section_selection.clicks.push({
-      section: sectionId,
-      x: Math.round(clickX),
-      y: Math.round(clickY),
-      nx: clickX / window.innerWidth,
-      ny: clickY / window.innerHeight,
-      viewport: { w: window.innerWidth, h: window.innerHeight },
-      timestamp: new Date().toISOString()
-    });
+    bookLogData.section_selection.clicks.push(clickData);
     LogCollector.saveBookLog(bookLogData);
   }
 

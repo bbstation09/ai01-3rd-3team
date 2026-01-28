@@ -22,6 +22,9 @@ const sectionConfig = {
   'S-R': { rows: ['M', 'N', 'O', 'P'], cols: [31, 60], grade: 'S' }
 };
 
+// 마우스 궤적 수집 시작 (LogCollector 사용 - 압축 포맷 30ms)
+LogCollector.initMouseTracking(mouseTrajectory, 30, pageStartTime, false);
+
 function initSeats() {
   const grid = document.getElementById('seatGrid');
   grid.innerHTML = '';
@@ -107,14 +110,26 @@ function toggleSeat(el, seatId, grade) {
   const rect = el.getBoundingClientRect();
   const clickX = rect.left + rect.width / 2;
   const clickY = rect.top + rect.height / 2;
-  clicks.push({
-    x: clickX,
-    y: clickY,
-    nx: clickX / window.innerWidth,
-    ny: clickY / window.innerHeight,
+  // 클릭 메트릭 가져오기 (매크로 탐지)
+  const clickMetrics = LogCollector.getClickMetrics(clickX, clickY);
+
+  const clickData = {
+    x: Math.floor(clickX),
+    y: Math.floor(clickY),
+    nx: parseFloat((clickX / window.innerWidth).toFixed(4)),
+    ny: parseFloat((clickY / window.innerHeight).toFixed(4)),
     target: seatId,
-    timestamp: now - pageStartTime
-  });
+    timestamp: now - pageStartTime,
+    ...clickMetrics // is_trusted, click_duration, is_integer 추가
+  };
+  clicks.push(clickData);
+
+  // 마우스 궤적에도 클릭 추가 (압축 포맷)
+  mouseTrajectory.push([
+    Math.floor(clickX),
+    Math.floor(clickY),
+    now - pageStartTime
+  ]);
 
   logAction('seat_click', seatId, rect.left, rect.top, timeDelta);
 

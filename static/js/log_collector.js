@@ -30,6 +30,7 @@ const LogCollector = {
       hardwareConcurrency: navigator.hardwareConcurrency,
       deviceMemory: navigator.deviceMemory,
       maxTouchPoints: navigator.maxTouchPoints,
+      language: navigator.language || navigator.userLanguage,
       webdriver: navigator.webdriver,  // Headless Chrome 탐지
       screen: {
         width: screen.width,
@@ -39,7 +40,9 @@ const LogCollector = {
       },
       window: {
         outerWidth: window.outerWidth,
-        outerHeight: window.outerHeight
+        outerHeight: window.outerHeight,
+        innerWidth: window.innerWidth, // Viewport width
+        innerHeight: window.innerHeight // Viewport height
       },
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     };
@@ -53,27 +56,68 @@ const LogCollector = {
    * @param {boolean} normalized - 정규화 좌표 포함 여부
    * from: perf_list.js, queue.js, section_select.js, seat_select.js
    */
+  // ============== Click Metrics Tracking (매크로 탐지용) ==============
+
+  _lastClickMetrics: {
+    mousedownTime: 0,
+    mouseupTime: 0,
+    isTrusted: true
+  },
+
+  // 페이지 로드 시 클릭 트래킹 시작
+  initClickMetrics: function () {
+    document.addEventListener('mousedown', (e) => {
+      this._lastClickMetrics.mousedownTime = Date.now();
+      this._lastClickMetrics.isTrusted = e.isTrusted;
+    }, true);
+
+    document.addEventListener('mouseup', (e) => {
+      this._lastClickMetrics.mouseupTime = Date.now();
+      this._lastClickMetrics.isTrusted = e.isTrusted; // update in case it changes
+    }, true);
+  },
+
+  /**
+   * 최근 클릭 이벤트의 메트릭 반환
+   * @param {number} clientX - 클릭 X 좌표
+   * @param {number} clientY - 클릭 Y 좌표
+   * @returns {object} { is_trusted, click_duration, is_integer }
+   */
+  getClickMetrics: function (clientX, clientY) {
+    const duration = this._lastClickMetrics.mouseupTime - this._lastClickMetrics.mousedownTime;
+    // 방어 로직: duration이 음수거나 너무 크면(이전 클릭 데이터인 경우) 0 처리
+    const validDuration = (duration >= 0 && duration < 5000) ? duration : 0;
+
+    return {
+      is_trusted: this._lastClickMetrics.isTrusted,
+      click_duration: validDuration,
+      is_integer: Number.isInteger(clientX) && Number.isInteger(clientY)
+    };
+  },
+
+  /**
+   * 마우스 궤적 수집 리스너 설정 (Array format [x, y, t] for compression)
+   * @param {Array} logArray - 마우스 궤적을 저장할 배열
+   * @param {number} interval - 수집 간격 (ms)
+   * @param {number} startTime - 시작 시간
+   * @param {boolean} normalized - 정규화 좌표 포함 여부 (압축을 위해 false 권장)
+   * from: perf_list.js, queue.js, section_select.js, seat_select.js
+   */
   initMouseTracking: function (logArray, interval, startTime, normalized = false) {
     let lastMouseTime = 0;
 
     const handler = (e) => {
       const now = Date.now();
       if (now - lastMouseTime >= interval) {
-        const point = {
-          x: e.clientX,
-          y: e.clientY
-        };
+        // [x, y, timestamp] - 압축 포맷
+        const t = startTime ? (now - startTime) : (now - lastMouseTime); // startTime이 없으면 delta
 
-        if (normalized) {
-          point.nx = e.clientX / window.innerWidth;
-          point.ny = e.clientY / window.innerHeight;
-        }
-
-        if (startTime) {
-          point.timestamp = now - startTime;
-        } else {
-          point.t = now - startTime;
-        }
+        // 정수 좌표 사용 (매크로 탐지/용량 절감)
+        const point = [
+          Math.floor(e.clientX),
+          Math.floor(e.clientY),
+          t
+        ];
 
         logArray.push(point);
         lastMouseTime = now;
@@ -81,7 +125,7 @@ const LogCollector = {
     };
 
     document.addEventListener('mousemove', handler);
-    return handler;  // 나중에 제거할 수 있도록 반환
+    return handler;
   },
 
   // ============== 페이지별 로그 초기화 ==============
@@ -248,27 +292,7 @@ const LogCollector = {
         final_seats: null,
         booking_id: null,
 
-        browser_info: {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          cookieEnabled: navigator.cookieEnabled,
-          doNotTrack: navigator.doNotTrack,
-          hardwareConcurrency: navigator.hardwareConcurrency,
-          deviceMemory: navigator.deviceMemory,
-          maxTouchPoints: navigator.maxTouchPoints,
-          webdriver: navigator.webdriver,
-          screen: {
-            width: screen.width,
-            height: screen.height,
-            colorDepth: screen.colorDepth,
-            pixelRatio: window.devicePixelRatio
-          },
-          window: {
-            outerWidth: window.outerWidth,
-            outerHeight: window.outerHeight
-          },
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }
+        browser_info: this.initBrowserInfo()
       },
       stages: {}
     };
@@ -455,3 +479,6 @@ const LogCollector = {
 
 // 전역 객체로 노출
 window.LogCollector = LogCollector;
+
+// 클릭 지표 수집 자동 시작
+LogCollector.initClickMetrics();
