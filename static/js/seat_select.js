@@ -220,11 +220,8 @@ function updatePrice() {
 }
 
 function goToCheckout() {
-  // bookLogData에 좌석 선택 정보 저장
-  let bookLogData = null;
-  try {
-    bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-  } catch (e) { }
+  // LogCollector 사용하여 bookLogData 가져오기 및 업데이트
+  let bookLogData = LogCollector.getBookLog();
 
   if (bookLogData) {
     bookLogData.seat_selection = {
@@ -238,10 +235,10 @@ function goToCheckout() {
       hovers: hovers
     };
     bookLogData.mouse_trajectory_seats = mouseTrajectory;
-    sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+    LogCollector.saveBookLog(bookLogData);
   }
 
-  // 좌석 선택 세션 로그 저장
+  // LogCollector 사용하여 좌석 선택 세션 로그 저장
   saveSessionLog().then(() => {
     const seatsParam = selectedSeats.join(',');
     window.location.href = `/step2/${perfId}?date=${selectedDate}&time=${selectedTime}&seats=${seatsParam}`;
@@ -262,11 +259,7 @@ async function saveSessionLog() {
     hovers: hovers
   };
 
-  await fetch('/api/session-log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sessionData)
-  });
+  await LogCollector.sendSessionLog(sessionData);
 }
 
 async function logAction(action, targetId, x = 0, y = 0, timeDelta = 0, extra = {}) {

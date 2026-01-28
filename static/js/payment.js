@@ -38,21 +38,19 @@ function verifyCaptcha() {
 }
 
 async function completeBooking() {
-  // book 로그의 session_id 가져오기
+  // LogCollector 사용하여 book 로그의 session_id 가져오기
   let bookSessionId = '';
-  try {
-    const bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-    if (bookLogData && bookLogData.session_id) {
-      bookSessionId = bookLogData.session_id;
-    }
-  } catch (e) { }
+  const bookLogData = LogCollector.getBookLog();
+  if (bookLogData && bookLogData.session_id) {
+    bookSessionId = bookLogData.session_id;
+  }
 
   const sId = typeof sessionId !== 'undefined' ? sessionId : '';
   const seats = typeof selectedSeats !== 'undefined' ? selectedSeats : [];
   const discount = typeof discountType !== 'undefined' ? discountType : 'normal';
   const delivery = typeof deliveryType !== 'undefined' ? deliveryType : 'pickup';
 
-  // 예매 완료 API 호출
+  // 예매 완료 데이터 구성
   const sessionData = {
     session_id: bookSessionId || sId,
     page: 'step4_payment',
@@ -62,16 +60,11 @@ async function completeBooking() {
     payment_type: selectedPayment
   };
 
-  const response = await fetch('/api/complete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sessionData)
-  });
-
-  const result = await response.json();
+  // LogCollector 사용하여 예매 완료 API 호출
+  const result = await LogCollector.sendCompleteLog(sessionData);
   if (result.success) {
-    // sessionStorage 정리
-    sessionStorage.removeItem('bookLogData');
+    // LogCollector 사용하여 sessionStorage 정리
+    LogCollector.clearBookLog();
     document.getElementById('bookingId').textContent = '예매번호: ' + result.booking_id;
     document.getElementById('completeModal').classList.add('active');
   }

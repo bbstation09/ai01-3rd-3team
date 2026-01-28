@@ -1,37 +1,13 @@
 // 공연 목록 페이지 JavaScript
 // 템플릿에서 performances 변수를 전역으로 설정해야 함
 
-const sessionId = 'perf_' + Math.random().toString(36).substr(2, 8);
+// ============== LogCollector 사용 ==============
+// 로그 데이터 초기화
+const logData = LogCollector.initPerfListLog();
+
 let currentPerfId = null;
 let selectedDate = null;
 let selectedTime = null;
-
-// 로그 데이터
-const logData = {
-  session_id: sessionId,
-  stage: 'perf',
-  page_entry_time: new Date().toISOString(),
-  performance_id: null,
-  actions: [],
-  mouse_trajectory: [],
-  card_clicks: [],
-  date_selections: [],
-  time_selections: []
-};
-
-// 마우스 궤적 수집 (100ms 간격)
-let lastMouseTime = 0;
-document.addEventListener('mousemove', (e) => {
-  const now = Date.now();
-  if (now - lastMouseTime > 100) {
-    logData.mouse_trajectory.push({
-      x: e.clientX,
-      y: e.clientY,
-      timestamp: now - new Date(logData.page_entry_time).getTime()
-    });
-    lastMouseTime = now;
-  }
-});
 
 function openModal(perfId) {
   currentPerfId = perfId;
@@ -133,12 +109,8 @@ function goToQueue() {
     timestamp: new Date().toISOString()
   });
 
-  // 로그 저장 후 페이지 이동
-  fetch('/api/stage-log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(logData)
-  }).then(() => {
+  // LogCollector 사용하여 로그 저장 후 페이지 이동
+  LogCollector.sendStageLog(logData).then(() => {
     window.location.href = `/queue/${currentPerfId}?date=${selectedDate}&time=${selectedTime}`;
   }).catch(() => {
     window.location.href = `/queue/${currentPerfId}?date=${selectedDate}&time=${selectedTime}`;

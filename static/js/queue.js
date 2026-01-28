@@ -5,38 +5,16 @@
 
 let isReady = false;
 
-// 대기열 로그 데이터
-const sessionId = 'que_' + Math.random().toString(36).substr(2, 8);
-const logData = {
-  session_id: sessionId,
-  stage: 'que',
-  performance_id: typeof perfId !== 'undefined' ? perfId : '',
-  selected_date: typeof selectedDate !== 'undefined' ? selectedDate : '',
-  selected_time: typeof selectedTime !== 'undefined' ? selectedTime : '',
-  queue_start_time: new Date().toISOString(),
-  initial_position: typeof initialPosition !== 'undefined' ? initialPosition : 0,
-  total_queue: typeof totalQueue !== 'undefined' ? totalQueue : 0,
-  position_updates: [],
-  queue_end_time: null,
-  final_position: null,
-  wait_duration_ms: null,
-  mouse_trajectory: []
-};
+// ============== LogCollector 사용 ==============
+// 대기열 로그 데이터 초기화
+const logData = LogCollector.initQueueLog(
+  typeof perfId !== 'undefined' ? perfId : '',
+  typeof selectedDate !== 'undefined' ? selectedDate : '',
+  typeof selectedTime !== 'undefined' ? selectedTime : '',
+  typeof totalQueue !== 'undefined' ? totalQueue : 0,
+  typeof initialPosition !== 'undefined' ? initialPosition : 0
+);
 const startTime = Date.now();
-
-// 마우스 궤적 수집
-let lastMouseTime = 0;
-document.addEventListener('mousemove', (e) => {
-  const now = Date.now();
-  if (now - lastMouseTime >= 30) {
-    logData.mouse_trajectory.push({
-      x: e.clientX,
-      y: e.clientY,
-      t: now - startTime
-    });
-    lastMouseTime = now;
-  }
-});
 
 function updateQueue() {
   fetch('/api/queue/status')
@@ -94,12 +72,8 @@ function enterBooking() {
   const sDate = typeof selectedDate !== 'undefined' ? selectedDate : '';
   const sTime = typeof selectedTime !== 'undefined' ? selectedTime : '';
 
-  // 로그 저장 후 페이지 이동
-  fetch('/api/stage-log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(logData)
-  }).then(() => {
+  // LogCollector 사용하여 로그 저장 후 페이지 이동
+  LogCollector.sendStageLog(logData).then(() => {
     window.location.href = `/captcha/${pId}?date=${sDate}&time=${sTime}`;
   }).catch(() => {
     window.location.href = `/captcha/${pId}?date=${sDate}&time=${sTime}`;

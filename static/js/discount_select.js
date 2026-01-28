@@ -4,12 +4,10 @@
 let selectedDiscount = 'normal';
 let pageStartTime = Date.now();
 
+// ============== LogCollector 사용 ==============
 // 페이지 진입 시 book 로그 서버 전송 (로그 수집 종료 시점)
 async function sendBookLog() {
-  let bookLogData = null;
-  try {
-    bookLogData = JSON.parse(sessionStorage.getItem('bookLogData'));
-  } catch (e) { }
+  let bookLogData = LogCollector.getBookLog();
 
   if (bookLogData) {
     bookLogData.booking_end_time = new Date().toISOString();
@@ -17,20 +15,16 @@ async function sendBookLog() {
       page_entry_time: new Date().toISOString()
     };
 
-    // 서버로 로그 전송
+    // LogCollector 사용하여 서버로 로그 전송
     try {
-      await fetch('/api/stage-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookLogData)
-      });
+      await LogCollector.sendStageLog(bookLogData);
       console.log('Book log sent successfully');
     } catch (e) {
       console.error('Failed to send book log:', e);
     }
 
-    // sessionStorage 정리
-    sessionStorage.removeItem('bookLogData');
+    // LogCollector 사용하여 sessionStorage 정리
+    LogCollector.clearBookLog();
   }
 }
 

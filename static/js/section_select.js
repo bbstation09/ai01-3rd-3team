@@ -8,56 +8,16 @@ const pageStartTime = Date.now();
 let mouseTrajectory = [];
 let sectionClicks = [];
 
+// ============== LogCollector 사용 ==============
 // 예매창 로그 시작 (구역선택 ~ 할인권종 진입까지)
-const bookSessionId = 'book_' + Math.random().toString(36).substr(2, 8);
-
-// 브라우저/OS 정보 수집 (Headless Chrome, 봇 탐지용)
-const browserInfo = {
-  userAgent: navigator.userAgent,
-  platform: navigator.platform,
-  cookieEnabled: navigator.cookieEnabled,
-  doNotTrack: navigator.doNotTrack,
-  hardwareConcurrency: navigator.hardwareConcurrency,
-  deviceMemory: navigator.deviceMemory,
-  maxTouchPoints: navigator.maxTouchPoints,
-  webdriver: navigator.webdriver,  // Headless Chrome 탐지
-  screen: {
-    width: screen.width,
-    height: screen.height,
-    colorDepth: screen.colorDepth,
-    pixelRatio: window.devicePixelRatio
-  },
-  window: {
-    outerWidth: window.outerWidth,
-    outerHeight: window.outerHeight
-  },
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-};
-
-const bookLogData = {
-  session_id: bookSessionId,
-  stage: 'book',
-  performance_id: typeof perfId !== 'undefined' ? perfId : '',
-  selected_date: typeof selectedDate !== 'undefined' ? selectedDate : '',
-  selected_time: typeof selectedTime !== 'undefined' ? selectedTime : '',
-  booking_start_time: new Date().toISOString(),
-  viewport: { w: window.innerWidth, h: window.innerHeight },
-  browser_info: browserInfo,
-  section_selection: {
-    start_time: new Date().toISOString(),
-    clicks: [],
-    final_section: null,
-    final_grade: null,
-    end_time: null,
-    mouse_trajectory: []
-  },
-  seat_selection: null,
-  discount: null,
-  booking_end_time: null
-};
+const bookLogData = LogCollector.initBookLog(
+  typeof perfId !== 'undefined' ? perfId : '',
+  typeof selectedDate !== 'undefined' ? selectedDate : '',
+  typeof selectedTime !== 'undefined' ? selectedTime : ''
+);
 
 function saveBookLogToStorage() {
-  sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+  LogCollector.saveBookLog(bookLogData);
 }
 
 // 마우스 궤적 수집
@@ -122,7 +82,7 @@ function selectSection(e, el, sectionId, grade, price) {
       viewport: { w: window.innerWidth, h: window.innerHeight },
       timestamp: new Date().toISOString()
     });
-    sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+    LogCollector.saveBookLog(bookLogData);
   }
 
   // UI 업데이트
@@ -153,7 +113,7 @@ function goToSeats() {
     bookLogData.section_selection.final_section = selectedSection;
     bookLogData.section_selection.final_grade = selectedGrade;
     bookLogData.section_selection.mouse_trajectory = mouseTrajectory;
-    sessionStorage.setItem('bookLogData', JSON.stringify(bookLogData));
+    LogCollector.saveBookLog(bookLogData);
   }
 
   window.location.href = `/booking/${pId}?date=${sDate}&time=${sTime}&section=${selectedSection}&grade=${selectedGrade}`;
