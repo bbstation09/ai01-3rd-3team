@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>결제 | 티켓 예매</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/payment.css">
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+        <div class="timer" id="timer">05:00</div>
+    </header>
+
+    <div class="step-indicator">
+        <div class="steps">
+            <div class="step completed">
+                <div class="step-num">✓</div><span>좌석선택</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step completed">
+                <div class="step-num">✓</div><span>할인권종</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step completed">
+                <div class="step-num">✓</div><span>예매정보</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step active">
+                <div class="step-num">4</div><span>결제</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">💳 결제 수단 선택</div>
+            <div class="section-body">
+                <div class="payment-grid">
+                    <label class="payment-option selected" onclick="selectPayment(this, 'card')">
+                        <input type="radio" name="payment" value="card" checked>
+                        <div class="payment-icon">💳</div>
+                        <span>신용카드</span>
+                    </label>
+                    <label class="payment-option" onclick="selectPayment(this, 'bank')">
+                        <input type="radio" name="payment" value="bank">
+                        <div class="payment-icon">🏦</div>
+                        <span>계좌이체</span>
+                    </label>
+                    <label class="payment-option" onclick="selectPayment(this, 'phone')">
+                        <input type="radio" name="payment" value="phone">
+                        <div class="payment-icon">📱</div>
+                        <span>휴대폰결제</span>
+                    </label>
+                    <label class="payment-option" onclick="selectPayment(this, 'kakao')">
+                        <input type="radio" name="payment" value="kakao">
+                        <div class="payment-icon">💛</div>
+                        <span>카카오페이</span>
+                    </label>
+                    <label class="payment-option" onclick="selectPayment(this, 'naver')">
+                        <input type="radio" name="payment" value="naver">
+                        <div class="payment-icon">💚</div>
+                        <span>네이버페이</span>
+                    </label>
+                    <label class="payment-option" onclick="selectPayment(this, 'toss')">
+                        <input type="radio" name="payment" value="toss">
+                        <div class="payment-icon">🔵</div>
+                        <span>토스페이</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-title">📋 결제 정보</div>
+            <div class="summary-row"><span>{{ performance.title }}</span></div>
+            <div class="summary-row"><span>{{ selected_date }} {{ selected_time }}</span></div>
+            <div class="summary-row"><span>좌석: {{ selected_seats | join(', ') }}</span></div>
+            <div class="summary-row"><span>티켓 금액</span><span>{{ "{:,}".format(total_price) }}원</span></div>
+            <div class="summary-row"><span>할인 금액</span><span>-{{ "{:,}".format(discount_amount) }}원</span></div>
+            <div class="summary-row"><span>배송비</span><span>{{ "{:,}".format(delivery_fee) }}원</span></div>
+            <div class="summary-total"><span>총 결제금액</span><span>{{ "{:,}".format(final_price) }}원</span></div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-back" onclick="history.back()">이전</button>
+            <button class="btn btn-pay" onclick="completeBooking()">{{ "{:,}".format(final_price) }}원 결제하기</button>
+        </div>
+    </div>
+
+    <!-- 캡챠 모달 -->
+    <div class="modal-overlay" id="captchaModal">
+        <div class="modal">
+            <h3 class="captcha-title">🔒 보안문자 입력</h3>
+            <div class="captcha-image" id="captchaText"></div>
+            <input type="text" class="captcha-input" id="captchaInput" placeholder="위 문자 입력" maxlength="6">
+            <button class="btn-captcha" onclick="verifyCaptcha()">확인</button>
+            <p class="captcha-error" id="captchaError">보안문자가 일치하지 않습니다.</p>
+        </div>
+    </div>
+
+    <!-- 완료 모달 -->
+    <div class="modal-overlay" id="completeModal">
+        <div class="modal">
+            <div class="complete-icon">🎉</div>
+            <h3 class="complete-title">예매가 완료되었습니다!</h3>
+            <p class="complete-info">예매 내역은 마이페이지에서 확인하실 수 있습니다.</p>
+            <div class="booking-id" id="bookingId"></div>
+            <button class="btn-captcha" onclick="location.href='/performances'">확인</button>
+        </div>
+    </div>
+
+    <script>
+        // 템플릿 변수
+        const sessionId = "{{ session_id }}";
+        const perfId = "{{ performance.id }}";
+        const selectedSeats = {{ selected_seats | tojson | safe }};
+        const discountType = "{{ discount_type }}";
+        const deliveryType = "{{ delivery_type }}";
+    </script>
+    <script src="/static/js/payment.js"></script>
+</body>
+
+</html>

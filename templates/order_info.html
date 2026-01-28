@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예매자 정보 | 티켓 예매</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/order_info.css">
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+        <div class="timer" id="timer">05:00</div>
+    </header>
+
+    <div class="step-indicator">
+        <div class="steps">
+            <div class="step completed">
+                <div class="step-num">✓</div><span>좌석선택</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step completed">
+                <div class="step-num">✓</div><span>할인권종</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step active">
+                <div class="step-num">3</div><span>예매정보</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-num">4</div><span>결제</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">👤 예매자 정보 확인</div>
+            <div class="section-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>이름</label>
+                        <input type="text" value="{{ user.name }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>연락처 <span style="color:#ff6b6b; font-size:11px;">*수정가능</span></label>
+                        <input type="tel" id="bookerPhone" value="{{ user.phone }}" placeholder="010-0000-0000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full">
+                        <label>이메일 <span style="color:#ff6b6b; font-size:11px;">*수정가능</span></label>
+                        <input type="email" id="bookerEmail" value="{{ user.email }}" placeholder="example@email.com">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">🚚 수령 방법 선택</div>
+            <div class="section-body">
+                <div class="delivery-options">
+                    <label class="delivery-option selected" onclick="selectDelivery(this, 'pickup', 0)">
+                        <input type="radio" name="delivery" value="pickup" checked>
+                        <div class="delivery-icon">🏟️</div>
+                        <h4>현장수령</h4>
+                        <p>공연 당일 매표소에서 수령</p>
+                        <div class="fee">무료</div>
+                    </label>
+                    <label class="delivery-option" onclick="selectDelivery(this, 'delivery', 3000)">
+                        <input type="radio" name="delivery" value="delivery">
+                        <div class="delivery-icon">📦</div>
+                        <h4>배송</h4>
+                        <p>등기우편 발송</p>
+                        <div class="fee">+3,000원</div>
+                    </label>
+                </div>
+
+                <div class="price-summary">
+                    <div class="price-row"><span>티켓 금액</span><span>{{ "{:,}".format(total_price) }}원</span></div>
+                    <div class="price-row"><span>할인 금액</span><span>-{{ "{:,}".format(discount_amount) }}원</span></div>
+                    <div class="price-row"><span>배송비</span><span id="deliveryFee">0원</span></div>
+                    <div class="price-row total"><span>총 결제금액</span><span class="amount" id="totalAmount">{{
+                            "{:,}".format(final_price) }}원</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-back" onclick="history.back()">이전</button>
+            <button class="btn btn-next" onclick="goNext()">다음 단계</button>
+        </div>
+    </div>
+
+    <script>
+        // 템플릿 변수
+        const perfId = "{{ performance.id }}";
+        const selectedDate = "{{ selected_date }}";
+        const selectedTime = "{{ selected_time }}";
+        const selectedSeats = "{{ selected_seats | join(',') }}";
+        const discountType = "{{ discount_type }}";
+        const finalPrice = {{ final_price }};
+    </script>
+    <script src="/static/js/order_info.js"></script>
+</body>
+
+</html>

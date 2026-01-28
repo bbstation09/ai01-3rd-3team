@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>할인권종 선택 | 티켓 예매</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/discount_select.css">
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+        <div class="timer" id="timer">05:00</div>
+    </header>
+
+    <div class="step-indicator">
+        <div class="steps">
+            <div class="step completed">
+                <div class="step-num">✓</div><span>좌석선택</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step active">
+                <div class="step-num">2</div><span>할인권종</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-num">3</div><span>예매정보</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-num">4</div><span>결제</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">🎫 예매 정보</div>
+            <div class="section-body">
+                <div class="info-row"><span>공연명</span><strong>{{ performance.title }}</strong></div>
+                <div class="info-row"><span>일시</span><strong>{{ selected_date }} {{ selected_time }}</strong></div>
+                <div class="info-row"><span>장소</span><strong>{{ performance.venue }}</strong></div>
+                <div class="info-row">
+                    <span>선택 좌석</span>
+                    <div class="seat-tags">
+                        {% for seat in selected_seats %}<span class="seat-tag">{{ seat }}</span>{% endfor %}
+                    </div>
+                </div>
+                <div class="info-row"><span>티켓 금액</span><strong style="color: #ff6b6b;">{{ "{:,}".format(total_price)
+                        }}원</strong></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">💳 할인권종 선택</div>
+            <div class="section-body">
+                <div class="discount-grid">
+                    <label class="discount-option selected" onclick="selectDiscount(this, 'normal')">
+                        <input type="radio" name="discount" value="normal" checked>
+                        <div class="discount-radio"></div>
+                        <div class="discount-info">
+                            <h4>일반</h4>
+                            <p>할인 없음</p>
+                        </div>
+                    </label>
+                    <label class="discount-option" onclick="selectDiscount(this, 'disabled')">
+                        <input type="radio" name="discount" value="disabled">
+                        <div class="discount-radio"></div>
+                        <div class="discount-info">
+                            <h4>장애인</h4>
+                            <p>복지카드 소지자</p>
+                        </div>
+                        <span class="discount-rate">50%</span>
+                    </label>
+                    <label class="discount-option" onclick="selectDiscount(this, 'veteran')">
+                        <input type="radio" name="discount" value="veteran">
+                        <div class="discount-radio"></div>
+                        <div class="discount-info">
+                            <h4>국가유공자</h4>
+                            <p>유공자증 소지자</p>
+                        </div>
+                        <span class="discount-rate">30%</span>
+                    </label>
+                    <label class="discount-option" onclick="selectDiscount(this, 'senior')">
+                        <input type="radio" name="discount" value="senior">
+                        <div class="discount-radio"></div>
+                        <div class="discount-info">
+                            <h4>경로</h4>
+                            <p>만 65세 이상</p>
+                        </div>
+                        <span class="discount-rate">20%</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-back" onclick="history.back()">이전</button>
+            <button class="btn btn-next" onclick="goNext()">다음 단계</button>
+        </div>
+    </div>
+
+    <script>
+        // 템플릿 변수
+        const perfId = "{{ performance.id }}";
+        const selectedDate = "{{ selected_date }}";
+        const selectedTime = "{{ selected_time }}";
+        const selectedSeats = "{{ selected_seats | join(',') }}";
+    </script>
+    <script src="/static/js/discount_select.js"></script>
+</body>
+
+</html>

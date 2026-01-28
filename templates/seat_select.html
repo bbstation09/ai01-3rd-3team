@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>좌석 선택 | 티켓 예매</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/seat_select.css">
+</head>
+
+<body>
+    <header class="header">
+        <a href="/performances" class="logo">TICKET<span>PARK</span></a>
+        <div class="header-info">
+            <span style="color:#666">{{ selected_date }} {{ selected_time }}</span>
+            <div class="timer" id="timer">10:00</div>
+        </div>
+    </header>
+
+    <div class="perf-bar">
+        <div class="perf-title-bar">{{ performance.title }}</div>
+        <div class="perf-date-bar">{{ selected_section }} 구역 | {{ selected_grade }}석</div>
+    </div>
+
+    <div class="main-container">
+        <div class="seat-section">
+            <div class="stage">🎤 STAGE</div>
+
+            <div class="seat-legend">
+                <div class="legend-item">
+                    <div class="legend-box vip"></div> VIP석
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box r"></div> R석
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box selected"></div> 선택됨
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box sold"></div> 매진
+                </div>
+            </div>
+
+            <div class="seat-container">
+                <div class="seat-grid" id="seatGrid">
+                    <!-- 좌석은 JavaScript로 동적 생성 -->
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-box">
+                <h3 class="sidebar-title">🎫 선택한 좌석</h3>
+                <div class="selected-seats" id="selectedSeats">
+                    <span class="no-seat">좌석을 선택해주세요 (최대 4석)</span>
+                </div>
+                <div class="price-info">
+                    <div class="price-row">
+                        <span>선택 좌석</span>
+                        <span id="seatCount">0석</span>
+                    </div>
+                    <div class="price-row total">
+                        <span>총 금액</span>
+                        <span class="amount" id="totalPrice">0원</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notice-box">
+                <strong>⚠️ 안내사항</strong>
+                • 좌석 선택 후 10분 이내 결제해주세요.<br>
+                • 선택한 좌석은 다른 사용자에게 먼저 점유될 수 있습니다.<br>
+                • 할인권종 및 결제는 다음 단계에서 선택합니다.<br>
+                • 선택 완료 후 10분 이내 결제해주세요.
+            </div>
+
+            <button class="btn-book" id="btnBook" disabled onclick="goToCheckout()">
+                좌석을 선택해주세요
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 템플릿 변수
+        const sessionId = "{{ session_id }}";
+        const perfId = "{{ performance.id }}";
+        const selectedDate = "{{ selected_date }}";
+        const selectedTime = "{{ selected_time }}";
+        const prices = {{ performance.price | tojson | safe }};
+        const mode = "{{ mode }}";
+        const selectedSection = "{{ selected_section }}";
+        const selectedGrade = "{{ selected_grade }}";
+    </script>
+    <script src="/static/js/seat_select.js"></script>
+</body>
+
+</html>

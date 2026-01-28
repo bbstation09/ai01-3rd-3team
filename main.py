@@ -382,7 +382,7 @@ async def performances_page(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     
-    return templates.TemplateResponse("performances.html", {
+    return templates.TemplateResponse("perf_list.html", {
         "request": request,
         "user": user,
         "performances": PERFORMANCES
@@ -414,7 +414,9 @@ async def queue_page(request: Request, perf_id: str, date: str = "", time: str =
         "performance": perf,
         "selected_date": date,
         "selected_time": time,
-        "queue_state": queue_states[session_id]
+        "queue_state": queue_states[session_id],
+        "total_queue": queue_states[session_id]["total"],
+        "initial_position": queue_states[session_id]["position"]
     })
 
 @app.get("/api/queue/status")
@@ -503,7 +505,7 @@ async def booking_page(request: Request, perf_id: str, date: str = "", time: str
     if "S" not in perf["price"]:
         perf["price"]["S"] = int(perf["price"]["R"] * 0.8)
     
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse("seat_select.html", {
         "request": request,
         "user": user,
         "performance": perf,
@@ -537,7 +539,7 @@ async def step2_discount(request: Request, perf_id: str, date: str = "", time: s
             grade = seat_id.split("-")[0] if "-" in seat_id else "R"
             total_price += perf["price"].get(grade, 0)
     
-    return templates.TemplateResponse("step2_discount.html", {
+    return templates.TemplateResponse("discount_select.html", {
         "request": request,
         "user": user,
         "performance": perf,
@@ -574,7 +576,7 @@ async def step3_booker(request: Request, perf_id: str, date: str = "", time: str
     discount_rate = discount_rates.get(discount, 0)
     discount_amount = int(total_price * discount_rate)
     
-    return templates.TemplateResponse("step3_booker.html", {
+    return templates.TemplateResponse("order_info.html", {
         "request": request,
         "user": user,
         "performance": perf,
@@ -615,7 +617,7 @@ async def step4_payment(request: Request, perf_id: str, date: str = "", time: st
     delivery_fee = 3000 if delivery == "delivery" else 0
     final_price = total_price - discount_amount + delivery_fee
     
-    return templates.TemplateResponse("step4_payment.html", {
+    return templates.TemplateResponse("payment.html", {
         "request": request,
         "user": user,
         "performance": perf,
@@ -830,8 +832,8 @@ async def complete_booking(request: Request):
     return {"success": True, "booking_id": booking_id}
 
 # ============== 로그 뷰어 ==============
-@app.get("/viewer", response_class=HTMLResponse)
-async def viewer_page(request: Request):
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
     """로그 뷰어 페이지"""
     user = get_current_user(request)
     if not user:
@@ -900,7 +902,7 @@ async def viewer_page(request: Request):
     # 정렬: 생성시간 최신순 → 세션ID 순
     log_files.sort(key=lambda x: (x.get("created_at", "") or "", x.get("session_id", "")), reverse=True)
     
-    return templates.TemplateResponse("viewer.html", {
+    return templates.TemplateResponse("admin.html", {
         "request": request,
         "user": user,
         "log_files": log_files
