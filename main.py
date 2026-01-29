@@ -317,13 +317,13 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-async def login(request: Request, email: str = Form(...), password: str = Form(...)):
+async def login(request: Request, name: str = Form(...), password: str = Form(...)):
     """로그인 처리"""
     users = load_users()
     hashed = hash_password(password)
     
     for user_id, user_data in users.items():
-        if user_data["email"] == email and user_data["password"] == hashed:
+        if user_data["name"] == name and user_data["password"] == hashed:
             request.session["user_id"] = user_id
             request.session["session_id"] = str(uuid.uuid4())
             return RedirectResponse(url="/performances", status_code=302)
